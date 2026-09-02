@@ -74,6 +74,31 @@ public class MyBatisPlusQuestionRepository implements QuestionRepository {
                 .selectCount(new LambdaQueryWrapper<QuestionDO>().eq(QuestionDO::getQuestionBankId, id.value()));
     }
 
+    /** 只读取游标之后的题目主键，并可按题库范围筛选。 */
+    public List<QuestionId> findIdsAfter(List<QuestionBankId> questionBankIds, Long cursor, int limit) {
+        LambdaQueryWrapper<QuestionDO> query = idQuery(questionBankIds).select(QuestionDO::getId)
+                .orderByAsc(QuestionDO::getId).last("limit " + limit);
+        if (cursor != null) {
+            query.gt(QuestionDO::getId, cursor);
+        }
+        return questions.selectList(query).stream().map(QuestionDO::getId).map(QuestionId::new).toList();
+    }
+
+    /** 由 PostgreSQL 随机排序后只返回一个题目主键。 */
+    public Optional<QuestionId> findRandomId(List<QuestionBankId> questionBankIds) {
+        return questions.selectList(idQuery(questionBankIds).select(QuestionDO::getId).last("order by random() limit 1"))
+                .stream().map(QuestionDO::getId).map(QuestionId::new).findFirst();
+    }
+
+    /** 为 ID 查询构造可选题库范围条件。 */
+    private LambdaQueryWrapper<QuestionDO> idQuery(List<QuestionBankId> questionBankIds) {
+        LambdaQueryWrapper<QuestionDO> query = new LambdaQueryWrapper<>();
+        if (!questionBankIds.isEmpty()) {
+            query.in(QuestionDO::getQuestionBankId, questionBankIds.stream().map(QuestionBankId::value).toList());
+        }
+        return query;
+    }
+
     public boolean deleteById(QuestionId id) {
         clearChildren(id.value());
         return questions.deleteById(id.value()) > 0;
@@ -110,6 +135,7 @@ public class MyBatisPlusQuestionRepository implements QuestionRepository {
                 .selectList(new LambdaQueryWrapper<QuestionAnswerDO>().eq(QuestionAnswerDO::getQuestionId, d.getId()))
                 .stream().map(QuestionAnswerDO::getOptionLabel).sorted().toList();
         return Question.reconstitute(new QuestionId(d.getId()), new QuestionBankId(d.getQuestionBankId()),
-                new QuestionNumber(d.getSequenceNo()), d.getStem(), os, new AnswerKey(as), d.getAnalysis());
+                new QuestionNumber(d.getSequenceNo()), d.getStem(), os, new AnswerKey(as),
+                QuestionType.valueOf(d.getQuestionType()), d.getAnalysis());
     }
 }

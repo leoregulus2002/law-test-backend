@@ -2,6 +2,7 @@ package cn.yanzongkeji.lawtest.question.interfaces.rest.controller;
 
 import cn.yanzongkeji.lawtest.question.application.command.QuestionManagementUseCase;
 import cn.yanzongkeji.lawtest.question.application.dto.QuestionCommand;
+import cn.yanzongkeji.lawtest.question.application.dto.QuestionIdCursorPage;
 import cn.yanzongkeji.lawtest.question.application.dto.QuestionPage;
 import cn.yanzongkeji.lawtest.question.application.query.QuestionQueryUseCase;
 import cn.yanzongkeji.lawtest.question.domain.model.Question;
@@ -36,6 +37,22 @@ public class QuestionController {
         return QuestionDetailResponse.from(query.question(id));
     }
 
+    /** 按游标查询全部或指定题库范围内的题目 ID。 */
+    @GetMapping("/questions/ids")
+    @Operation(summary = "游标分页查询题目 ID", description = "不传 questionBankIds 查询全部题库；cursor 使用上次返回的 nextCursor")
+    public CursorPageResponse<Long> ids(@RequestParam(required = false) java.util.List<Long> questionBankIds,
+            @RequestParam(required = false) Long cursor, @RequestParam(defaultValue = "100") int size) {
+        QuestionIdCursorPage result = query.questionIds(questionBankIds, cursor, size);
+        return new CursorPageResponse<>(result.items(), result.nextCursor(), result.hasNext());
+    }
+
+    /** 随机查询全部或指定题库范围内的一个题目 ID。 */
+    @GetMapping("/questions/random-id")
+    @Operation(summary = "随机查询题目 ID", description = "不传 questionBankIds 查询全部题库；可传一个或多个题库 ID")
+    public QuestionIdResponse randomId(@RequestParam(required = false) java.util.List<Long> questionBankIds) {
+        return new QuestionIdResponse(query.randomQuestionId(questionBankIds));
+    }
+
     @PostMapping("/question-banks/{bankId}/questions")
     @Operation(summary = "新增题目")
     public ResponseEntity<QuestionDetailResponse> create(@PathVariable long bankId,
@@ -61,6 +78,6 @@ public class QuestionController {
         return new QuestionCommand(r.number(), r.stem(),
                 r.options() == null ? java.util.List.of()
                         : r.options().stream().map(o -> new QuestionCommand.Option(o.label(), o.content())).toList(),
-                r.answers() == null ? java.util.List.of() : r.answers(), r.analysis());
+                r.answers() == null ? java.util.List.of() : r.answers(), r.questionType(), r.analysis());
     }
 }

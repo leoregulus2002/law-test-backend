@@ -13,42 +13,45 @@ public final class Question {
     private String stem;
     private List<QuestionOption> options;
     private AnswerKey answerKey;
+    private QuestionType type;
     private String analysis;
 
     private Question(QuestionId id, QuestionBankId questionBankId, QuestionNumber number, String stem,
-            List<QuestionOption> options, AnswerKey answerKey, String analysis) {
+            List<QuestionOption> options, AnswerKey answerKey, QuestionType type, String analysis) {
         this.id = id;
         this.questionBankId = questionBankId;
         this.number = number;
         this.stem = stem;
         this.options = options;
         this.answerKey = answerKey;
+        this.type = type;
         this.analysis = analysis;
     }
 
     /** Word 解析阶段尚未得到题库 ID 的临时题目。 */
     public static Question create(QuestionNumber number, String stem, List<QuestionOption> options, AnswerKey answerKey,
-            String analysis) {
-        return build(null, null, number, stem, options, answerKey, analysis);
+            QuestionType type, String analysis) {
+        return build(null, null, number, stem, options, answerKey, type, analysis);
     }
 
     public static Question create(QuestionBankId questionBankId, QuestionNumber number, String stem,
-            List<QuestionOption> options, AnswerKey answerKey, String analysis) {
-        return build(null, Objects.requireNonNull(questionBankId, "题库 ID 不能为空"), number, stem, options, answerKey,
+            List<QuestionOption> options, AnswerKey answerKey, QuestionType type, String analysis) {
+        return build(null, Objects.requireNonNull(questionBankId, "题库 ID 不能为空"), number, stem, options, answerKey, type,
                 analysis);
     }
 
     public static Question reconstitute(QuestionId id, QuestionBankId questionBankId, QuestionNumber number,
-            String stem, List<QuestionOption> options, AnswerKey answerKey, String analysis) {
+            String stem, List<QuestionOption> options, AnswerKey answerKey, QuestionType type, String analysis) {
         return build(Objects.requireNonNull(id, "题目 ID 不能为空"), Objects.requireNonNull(questionBankId, "题库 ID 不能为空"),
-                number, stem, options, answerKey, analysis);
+                number, stem, options, answerKey, type, analysis);
     }
 
     private static Question build(QuestionId id, QuestionBankId questionBankId, QuestionNumber number, String stem,
-            List<QuestionOption> options, AnswerKey answerKey, String analysis) {
+            List<QuestionOption> options, AnswerKey answerKey, QuestionType type, String analysis) {
         Objects.requireNonNull(number, "题号不能为空");
         Objects.requireNonNull(options, "选项不能为空");
         Objects.requireNonNull(answerKey, "答案不能为空");
+        Objects.requireNonNull(type, "题型不能为空");
         String normalizedStem = requireText(stem, "题干不能为空");
         if (options.isEmpty())
             throw new IllegalArgumentException("题目至少需要一个选项");
@@ -63,17 +66,18 @@ public final class Question {
             if (!labels.contains(answer))
                 throw new IllegalArgumentException("答案引用了不存在的选项: " + answer);
         }
-        return new Question(id, questionBankId, number, normalizedStem, List.copyOf(options), answerKey,
+        return new Question(id, questionBankId, number, normalizedStem, List.copyOf(options), answerKey, type,
                 analysis == null ? "" : analysis.strip());
     }
 
     public void revise(QuestionNumber number, String stem, List<QuestionOption> options, AnswerKey answerKey,
-            String analysis) {
-        Question replacement = build(id, questionBankId, number, stem, options, answerKey, analysis);
+            QuestionType type, String analysis) {
+        Question replacement = build(id, questionBankId, number, stem, options, answerKey, type, analysis);
         this.number = replacement.number;
         this.stem = replacement.stem;
         this.options = replacement.options;
         this.answerKey = replacement.answerKey;
+        this.type = replacement.type;
         this.analysis = replacement.analysis;
     }
 
@@ -102,7 +106,7 @@ public final class Question {
     }
 
     public QuestionType type() {
-        return QuestionType.from(answerKey);
+        return type;
     }
 
     public String analysis() {

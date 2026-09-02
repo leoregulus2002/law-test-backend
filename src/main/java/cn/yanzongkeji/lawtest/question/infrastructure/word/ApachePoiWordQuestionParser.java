@@ -5,6 +5,7 @@ import cn.yanzongkeji.lawtest.question.domain.model.AnswerKey;
 import cn.yanzongkeji.lawtest.question.domain.model.Question;
 import cn.yanzongkeji.lawtest.question.domain.model.QuestionNumber;
 import cn.yanzongkeji.lawtest.question.domain.model.QuestionOption;
+import cn.yanzongkeji.lawtest.question.domain.model.QuestionType;
 import cn.yanzongkeji.lawtest.question.domain.port.WordQuestionParser;
 import org.apache.poi.ooxml.POIXMLException;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
@@ -36,7 +37,7 @@ public final class ApachePoiWordQuestionParser implements WordQuestionParser {
     private static final Pattern ANSWER_LABEL_PATTERN = Pattern.compile("[A-Z]");
 
     @Override
-    public List<Question> parse(InputStream content) throws IOException {
+    public List<Question> parse(InputStream content, QuestionType questionType) throws IOException {
         try (XWPFDocument document = new XWPFDocument(content)) {
             List<Question> questions = new ArrayList<>();
             List<XWPFTable> tables = document.getTables();
@@ -46,7 +47,7 @@ public final class ApachePoiWordQuestionParser implements WordQuestionParser {
                 if (fields.isEmpty()) {
                     continue;
                 }
-                questions.add(toQuestion(fields, wordTableIndex));
+                questions.add(toQuestion(fields, wordTableIndex, questionType));
             }
             if (questions.isEmpty()) {
                 throw new WordQuestionParseException("未找到包含题号、题目、选项、答案、解析的题目表格");
@@ -86,13 +87,13 @@ public final class ApachePoiWordQuestionParser implements WordQuestionParser {
         return fields;
     }
 
-    private Question toQuestion(Map<String, String> fields, int wordTableIndex) {
+    private Question toQuestion(Map<String, String> fields, int wordTableIndex, QuestionType questionType) {
         try {
             int number = Integer.parseInt(requiredText(fields, "题号"));
             String stem = requiredText(fields, "题目");
             List<QuestionOption> options = parseOptions(requiredText(fields, "选项"), wordTableIndex);
             AnswerKey answerKey = new AnswerKey(parseAnswerLabels(requiredText(fields, "答案")));
-            return Question.create(new QuestionNumber(number), stem, options, answerKey, fields.get("解析"));
+            return Question.create(new QuestionNumber(number), stem, options, answerKey, questionType, fields.get("解析"));
         } catch (NumberFormatException exception) {
             throw tableError(wordTableIndex, "题号必须是正整数");
         } catch (IllegalArgumentException exception) {

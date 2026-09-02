@@ -19,11 +19,11 @@ public class ImportWordQuestionsService implements ImportWordQuestionsUseCase {
 
     @Override
     @Transactional
-    public ImportResult importWord(String fileName, InputStream content) throws IOException {
-        validate(fileName, content);
+    public ImportResult importWord(String fileName, InputStream content, QuestionType questionType) throws IOException {
+        validate(fileName, content, questionType);
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            List<Question> parsed = parser.parse(new DigestInputStream(content, digest));
+            List<Question> parsed = parser.parse(new DigestInputStream(content, digest), questionType);
             ensureDistinctNumbers(parsed);
             String hash = HexFormat.of().formatHex(digest.digest());
             QuestionBank bank = QuestionBank.create(fileName, new QuestionBankCode(hash));
@@ -36,11 +36,13 @@ public class ImportWordQuestionsService implements ImportWordQuestionsUseCase {
         }
     }
 
-    private static void validate(String fileName, InputStream content) {
+    private static void validate(String fileName, InputStream content, QuestionType questionType) {
         if (fileName == null || fileName.isBlank() || !fileName.toLowerCase(Locale.ROOT).endsWith(".docx"))
             throw new WordFileValidationException("仅支持 .docx 格式的 Word 文件");
         if (content == null)
             throw new WordFileValidationException("上传文件内容不能为空");
+        if (questionType == null)
+            throw new WordFileValidationException("题型不能为空");
     }
 
     private static void ensureDistinctNumbers(List<Question> questions) {

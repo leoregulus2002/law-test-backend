@@ -23,7 +23,7 @@ public class QuestionManagementService implements QuestionManagementUseCase {
         Question question = toQuestion(id, command);
         QuestionId questionId = questions.save(question);
         return Question.reconstitute(questionId, id, question.number(), question.stem(), question.options(),
-                question.answerKey(), question.analysis());
+                question.answerKey(), question.type(), question.analysis());
     }
 
     @Override
@@ -33,7 +33,7 @@ public class QuestionManagementService implements QuestionManagementUseCase {
                 .orElseThrow(() -> new QuestionNotFoundException(questionId));
         Question replacement = toQuestion(existing.questionBankId(), command);
         existing.revise(replacement.number(), replacement.stem(), replacement.options(), replacement.answerKey(),
-                replacement.analysis());
+                replacement.type(), replacement.analysis());
         questions.save(existing);
         return existing;
     }
@@ -60,7 +60,7 @@ public class QuestionManagementService implements QuestionManagementUseCase {
             List<QuestionOption> options = command.options().stream()
                     .map(o -> new QuestionOption(o.label(), o.content())).toList();
             return Question.create(bankId, new QuestionNumber(command.number()), command.stem(), options,
-                    new AnswerKey(command.answers()), command.analysis());
+                    new AnswerKey(command.answers()), command.questionType(), command.analysis());
         } catch (RuntimeException e) {
             throw new QuestionValidationException(e.getMessage());
         }

@@ -6,6 +6,6 @@ import org.apache.ibatis.annotations.*;
 
 @Mapper
 public interface QuestionMapper extends BaseMapper<QuestionDO> {
-    @Update("update question set sequence_no=#{sequenceNo}, stem=#{stem}, analysis=#{analysis}, updated_at=current_timestamp where id=#{id}")
+    @Update("update question set sequence_no=#{sequenceNo}, stem=#{stem}, analysis=#{analysis}, question_type=#{questionType}, updated_at=current_timestamp where id=#{id}")
     int updateContent(QuestionDO data);
 }

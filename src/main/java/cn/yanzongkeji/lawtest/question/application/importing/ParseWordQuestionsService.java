@@ -3,6 +3,7 @@ package cn.yanzongkeji.lawtest.question.application.importing;
 import cn.yanzongkeji.lawtest.question.application.exception.WordFileValidationException;
 
 import cn.yanzongkeji.lawtest.question.domain.model.Question;
+import cn.yanzongkeji.lawtest.question.domain.model.QuestionType;
 import cn.yanzongkeji.lawtest.question.domain.port.WordQuestionParser;
 
 import java.io.IOException;
@@ -23,7 +24,7 @@ public final class ParseWordQuestionsService implements ParseWordQuestionsUseCas
     }
 
     @Override
-    public List<Question> parse(String fileName, InputStream content) throws IOException {
+    public List<Question> parse(String fileName, InputStream content, QuestionType questionType) throws IOException {
         if (fileName == null || fileName.isBlank()) {
             throw new WordFileValidationException("请选择一个 .docx 文件");
         }
@@ -33,6 +34,9 @@ public final class ParseWordQuestionsService implements ParseWordQuestionsUseCas
         if (content == null) {
             throw new WordFileValidationException("上传文件内容不能为空");
         }
-        return parser.parse(content);
+        if (questionType == null) {
+            throw new WordFileValidationException("题型不能为空");
+        }
+        return parser.parse(content, questionType);
     }
 }

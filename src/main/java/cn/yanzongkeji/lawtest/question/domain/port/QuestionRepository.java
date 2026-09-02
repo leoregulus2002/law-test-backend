@@ -23,6 +23,12 @@ public interface QuestionRepository {
 
     long countByBankId(QuestionBankId bankId);
 
+    /** 按 ID 游标查询全部或指定题库范围内的题目 ID。 */
+    List<QuestionId> findIdsAfter(List<QuestionBankId> questionBankIds, Long cursor, int limit);
+
+    /** 在全部或指定题库范围内随机选取一个题目 ID。 */
+    Optional<QuestionId> findRandomId(List<QuestionBankId> questionBankIds);
+
     boolean deleteById(QuestionId questionId);
 
     void deleteByBankId(QuestionBankId bankId);
