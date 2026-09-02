@@ -1,0 +1,23 @@
+name: law-test
+
+services:
+  postgres:
+    image: postgres:18
+    container_name: law-test-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-law_test}
+      POSTGRES_USER: ${POSTGRES_USER:-law_test}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-law_test_local_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - law-test-postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  law-test-postgres-data:
