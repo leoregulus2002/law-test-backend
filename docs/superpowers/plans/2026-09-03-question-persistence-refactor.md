@@ -34,10 +34,10 @@
 - Produces: `QuestionPracticeQuery.findIdsAfter(List<QuestionBankId>, Long, int): List<QuestionId>`
 - Produces: `QuestionPracticeQuery.findRandomId(List<QuestionBankId>): Optional<QuestionId>`
 
-- [ ] 从 `QuestionRepository` 删除分页、单题库统计、多题库统计、游标和随机查询方法及不再需要的 `List` import。
-- [ ] 新增 `QuestionManagementQuery`，只声明管理列表所需的分页和统计语义。
-- [ ] 新增 `QuestionPracticeQuery`，只声明练习场景所需的统计、游标和随机语义。
-- [ ] 为两个查询端口添加中文接口说明及重要方法注释。
+- [x] 从 `QuestionRepository` 删除分页、单题库统计、多题库统计、游标和随机查询方法及不再需要的 `List` import。
+- [x] 新增 `QuestionManagementQuery`，只声明管理列表所需的分页和统计语义。
+- [x] 新增 `QuestionPracticeQuery`，只声明练习场景所需的统计、游标和随机语义。
+- [x] 为两个查询端口添加中文接口说明及重要方法注释。
 
 ### Task 2: 下沉数据库访问并集中聚合转换
 
@@ -54,10 +54,10 @@
 - Produces: `QuestionPersistenceConverter.toQuestionDO(Question, QuestionBankId): QuestionDO`
 - Produces: `QuestionPersistenceConverter.toDomain(QuestionDO, List<QuestionOptionDO>, List<QuestionAnswerDO>): Question`
 
-- [ ] 在 `QuestionMapper` 中增加按题库查询主键和按题库删除方法，保留 `updateContent`。
-- [ ] 在 Option、Answer Mapper 中增加按单个/多个 questionId 查询及删除方法；查询结果保持选项显示顺序和答案标签顺序。
-- [ ] 新增 `QuestionQueryMapper`，使用 MyBatis 动态 SQL 完成分页、统计、游标和 PostgreSQL `ORDER BY random()` 查询。
-- [ ] 新增 `QuestionPersistenceConverter`，通过 `Question.reconstitute(...)` 恢复聚合，并集中维护 DO 转换。
+- [x] 在 `QuestionMapper` 中增加按题库删除方法，保留 `updateContent`。
+- [x] 在 Option、Answer Mapper 中增加按单个 questionId 查询和删除方法，并以 PostgreSQL 关联删除按题库清理子表；查询结果保持选项显示顺序和答案标签顺序。
+- [x] 新增 `QuestionQueryMapper`，使用 MyBatis 动态 SQL 完成分页、统计、游标和 PostgreSQL `ORDER BY random()` 查询。
+- [x] 新增 `QuestionPersistenceConverter`，通过 `Question.reconstitute(...)` 恢复聚合，并集中维护 DO 转换。
 
 ### Task 3: 精简 Repository 并实现固定次数分页查询
 
@@ -70,10 +70,10 @@
 - Consumes: Task 1 的三个端口和 Task 2 的 Mapper、Converter。
 - Produces: Question 聚合生命周期实现、管理查询实现和练习查询实现。
 
-- [ ] 重写 `MyBatisPlusQuestionRepository`，移除全部查询侧方法和 LambdaQueryWrapper，只保留聚合保存、单聚合恢复及级联删除协调。
-- [ ] 新增 `MyBatisPlusQuestionManagementQuery`：分页查 QuestionDO 后，分别批量查 OptionDO 和 AnswerDO，按 questionId 分组并恢复聚合；空页面不发起子表查询。
-- [ ] 新增 `MyBatisPlusQuestionPracticeQuery`：把值对象 ID 转为数据库 Long，并将统计、游标和随机查询委托给 `QuestionQueryMapper`。
-- [ ] 确认非空分页严格为一次 question 查询、一次 option 查询和一次 answer 查询。
+- [x] 重写 `MyBatisPlusQuestionRepository`，移除全部查询侧方法和 LambdaQueryWrapper，只保留聚合保存、单聚合恢复及级联删除协调。
+- [x] 新增 `MyBatisPlusQuestionManagementQuery`：分页查 QuestionDO 后，分别批量查 OptionDO 和 AnswerDO，按 questionId 分组并恢复聚合；空页面不发起子表查询。
+- [x] 新增 `MyBatisPlusQuestionPracticeQuery`：把值对象 ID 转为数据库 Long，并将统计、游标和随机查询委托给 `QuestionQueryMapper`。
+- [x] 确认非空分页严格为一次 question 查询、一次 option 查询和一次 answer 查询。
 
 ### Task 4: 迁移应用调用方并编译验证
 
@@ -86,8 +86,8 @@
 - Consumes: `QuestionRepository`、`QuestionManagementQuery`、`QuestionPracticeQuery`。
 - Produces: 与现有 `QuestionQueryUseCase` 完全相同的外部行为。
 
-- [ ] 将 `QuestionQueryService` 构造依赖拆为 QuestionRepository、QuestionManagementQuery 和 QuestionPracticeQuery，并迁移每个调用点。
-- [ ] 更新 `QuestionModuleConfiguration` 组合根，将三个依赖注入查询服务。
-- [ ] 更新现有测试桩构造方式和接口实现，使源码继续匹配新的端口；不新增或运行测试。
-- [ ] 运行 `mvn -Dmaven.test.skip=true compile`，要求退出码为 0。
-- [ ] 运行 `git diff --check` 并检查最终 diff，确认无数据库迁移、接口层和领域模型行为变更。
+- [x] 将 `QuestionQueryService` 构造依赖拆为 QuestionRepository、QuestionManagementQuery 和 QuestionPracticeQuery，并迁移每个调用点。
+- [x] 更新 `QuestionModuleConfiguration` 组合根，将三个依赖注入查询服务。
+- [x] 更新现有测试桩构造方式和接口实现，使源码继续匹配新的端口；不新增或运行测试。
+- [x] 运行 `mvn -Dmaven.test.skip=true compile`，要求退出码为 0。
+- [x] 运行 `git diff --check` 并检查最终 diff，确认无数据库迁移、接口层和领域模型行为变更。

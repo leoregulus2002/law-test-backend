@@ -36,7 +36,8 @@ public class QuestionModuleConfiguration {
     }
 
     @Bean
-    QuestionQueryUseCase questionQueryUseCase(QuestionBankRepository banks, QuestionRepository questions) {
-        return new QuestionQueryService(banks, questions);
+    QuestionQueryUseCase questionQueryUseCase(QuestionBankRepository banks, QuestionRepository questions,
+            QuestionManagementQuery managementQuery, QuestionPracticeQuery practiceQuery) {
+        return new QuestionQueryService(banks, questions, managementQuery, practiceQuery);
     }
 }

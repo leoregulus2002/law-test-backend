@@ -13,6 +13,8 @@ import java.util.List;
 public class QuestionQueryService implements QuestionQueryUseCase {
     private final QuestionBankRepository banks;
     private final QuestionRepository questions;
+    private final QuestionManagementQuery managementQuery;
+    private final QuestionPracticeQuery practiceQuery;
 
     public QuestionPage<QuestionBank> questionBanks(int page, int size) {
         int[] p = page(page, size);
@@ -28,7 +30,8 @@ public class QuestionQueryService implements QuestionQueryUseCase {
         if (banks.findById(id).isEmpty())
             throw new QuestionBankNotFoundException(bankId);
         int[] p = page(page, size);
-        return new QuestionPage<>(questions.findPageByBankId(id, p[0], p[1]), page, p[1], questions.countByBankId(id));
+        return new QuestionPage<>(managementQuery.findPageByBankId(id, p[0], p[1]), page, p[1],
+                managementQuery.countByBankId(id));
     }
 
     public Question question(long id) {
@@ -39,17 +42,18 @@ public class QuestionQueryService implements QuestionQueryUseCase {
     public QuestionIdCursorPage questionIds(List<Long> questionBankIds, Long cursor, int size) {
         validateCursor(cursor, size);
         List<QuestionBankId> bankIds = toBankIds(questionBankIds);
-        List<Long> ids = questions.findIdsAfter(bankIds, cursor, size + 1).stream()
+        List<Long> ids = practiceQuery.findIdsAfter(bankIds, cursor, size + 1).stream()
                 .map(QuestionId::value).toList();
         boolean hasNext = ids.size() > size;
         List<Long> items = hasNext ? ids.subList(0, size) : ids;
         Long nextCursor = hasNext ? items.getLast() : null;
-        return new QuestionIdCursorPage(items, nextCursor, hasNext, questions.countByBankIds(bankIds));
+        return new QuestionIdCursorPage(items, nextCursor, hasNext, practiceQuery.countByBankIds(bankIds));
     }
 
     /** 在全部或指定题库范围内随机获取一个题目 ID。 */
     public long randomQuestionId(List<Long> questionBankIds) {
-        return questions.findRandomId(toBankIds(questionBankIds)).orElseThrow(QuestionNotFoundException::new).value();
+        return practiceQuery.findRandomId(toBankIds(questionBankIds)).orElseThrow(QuestionNotFoundException::new)
+                .value();
     }
 
     /** 将可选的 HTTP 题库 ID 参数转换为去重后的领域标识。 */
