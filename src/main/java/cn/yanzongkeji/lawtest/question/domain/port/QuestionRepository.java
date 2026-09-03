@@ -23,6 +23,11 @@ public interface QuestionRepository {
 
     long countByBankId(QuestionBankId bankId);
 
+    /** 统计全部或指定题库范围内的题目数量。 */
+    default long countByBankIds(List<QuestionBankId> questionBankIds) {
+        return findIdsAfter(questionBankIds, null, Integer.MAX_VALUE).size();
+    }
+
     /** 按 ID 游标查询全部或指定题库范围内的题目 ID。 */
     List<QuestionId> findIdsAfter(List<QuestionBankId> questionBankIds, Long cursor, int limit);
 

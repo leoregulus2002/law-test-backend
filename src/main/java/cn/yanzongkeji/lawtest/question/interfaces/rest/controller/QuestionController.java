@@ -43,7 +43,7 @@ public class QuestionController {
     public CursorPageResponse<Long> ids(@RequestParam(required = false) java.util.List<Long> questionBankIds,
             @RequestParam(required = false) Long cursor, @RequestParam(defaultValue = "100") int size) {
         QuestionIdCursorPage result = query.questionIds(questionBankIds, cursor, size);
-        return new CursorPageResponse<>(result.items(), result.nextCursor(), result.hasNext());
+        return new CursorPageResponse<>(result.items(), result.nextCursor(), result.hasNext(), result.total());
     }
 
     /** 随机查询全部或指定题库范围内的一个题目 ID。 */

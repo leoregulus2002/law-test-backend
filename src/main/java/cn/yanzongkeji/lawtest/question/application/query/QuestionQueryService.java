@@ -38,12 +38,13 @@ public class QuestionQueryService implements QuestionQueryUseCase {
     /** 按 ID 游标查询全部或指定题库范围内的题目 ID。 */
     public QuestionIdCursorPage questionIds(List<Long> questionBankIds, Long cursor, int size) {
         validateCursor(cursor, size);
-        List<Long> ids = questions.findIdsAfter(toBankIds(questionBankIds), cursor, size + 1).stream()
+        List<QuestionBankId> bankIds = toBankIds(questionBankIds);
+        List<Long> ids = questions.findIdsAfter(bankIds, cursor, size + 1).stream()
                 .map(QuestionId::value).toList();
         boolean hasNext = ids.size() > size;
         List<Long> items = hasNext ? ids.subList(0, size) : ids;
         Long nextCursor = hasNext ? items.getLast() : null;
-        return new QuestionIdCursorPage(items, nextCursor, hasNext);
+        return new QuestionIdCursorPage(items, nextCursor, hasNext, questions.countByBankIds(bankIds));
     }
 
     /** 在全部或指定题库范围内随机获取一个题目 ID。 */

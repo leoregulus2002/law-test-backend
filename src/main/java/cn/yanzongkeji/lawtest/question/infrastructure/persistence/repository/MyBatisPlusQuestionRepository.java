@@ -74,6 +74,11 @@ public class MyBatisPlusQuestionRepository implements QuestionRepository {
                 .selectCount(new LambdaQueryWrapper<QuestionDO>().eq(QuestionDO::getQuestionBankId, id.value()));
     }
 
+    @Override
+    public long countByBankIds(List<QuestionBankId> questionBankIds) {
+        return questions.selectCount(idQuery(questionBankIds));
+    }
+
     /** 只读取游标之后的题目主键，并可按题库范围筛选。 */
     public List<QuestionId> findIdsAfter(List<QuestionBankId> questionBankIds, Long cursor, int limit) {
         LambdaQueryWrapper<QuestionDO> query = idQuery(questionBankIds).select(QuestionDO::getId)
