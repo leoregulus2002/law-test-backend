@@ -4,6 +4,7 @@ import cn.yanzongkeji.lawtest.user.application.auth.InvalidRefreshTokenException
 import cn.yanzongkeji.lawtest.user.application.exception.AccountConflictException;
 import cn.yanzongkeji.lawtest.user.application.exception.AccountLockedException;
 import cn.yanzongkeji.lawtest.user.application.exception.AuthenticationFailedException;
+import cn.yanzongkeji.lawtest.user.application.exception.CeremonyUnavailableException;
 import cn.yanzongkeji.lawtest.user.interfaces.rest.response.AuthErrorResponse;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -30,6 +31,11 @@ public class UserAuthenticationExceptionHandler {
     @ExceptionHandler(AccountConflictException.class)
     public ResponseEntity<AuthErrorResponse> accountConflict(AccountConflictException exception) {
         return error(HttpStatus.CONFLICT, "ACCOUNT_CONFLICT", "账号已存在");
+    }
+
+    @ExceptionHandler(CeremonyUnavailableException.class)
+    public ResponseEntity<AuthErrorResponse> ceremonyUnavailable(CeremonyUnavailableException exception) {
+        return error(HttpStatus.GONE, "CEREMONY_UNAVAILABLE", "认证操作已失效");
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
