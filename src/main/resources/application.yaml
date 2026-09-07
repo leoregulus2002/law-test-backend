@@ -21,3 +21,19 @@ springdoc:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
+
+law-test:
+  auth:
+    jwt:
+      issuer: law-test-backend
+      secret: ${JWT_SECRET:dev-only-change-this-32-byte-secret}
+      access-token-ttl: PT15M
+      refresh-token-ttl: P30D
+    webauthn:
+      rp-id: ${WEBAUTHN_RP_ID:localhost}
+      rp-name: ${WEBAUTHN_RP_NAME:Law Test Development}
+      allowed-origins: ${WEBAUTHN_ALLOWED_ORIGINS:http://localhost:8080}
+      ceremony-ttl: PT5M
+    android:
+      package-name: ${ANDROID_PACKAGE_NAME:cn.yanzongkeji.lawtest.android}
+      certificate-sha256: ${ANDROID_CERTIFICATE_SHA256:DEV_CERTIFICATE_SHA256}
