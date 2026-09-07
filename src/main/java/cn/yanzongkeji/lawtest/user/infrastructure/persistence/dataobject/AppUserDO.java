@@ -32,4 +32,12 @@ public class AppUserDO {
     private Instant createdAt;
     @TableField("updated_at")
     private Instant updatedAt;
+
+    public byte[] getWebauthnUserHandle() {
+        return webauthnUserHandle == null ? null : webauthnUserHandle.clone();
+    }
+
+    public void setWebauthnUserHandle(byte[] webauthnUserHandle) {
+        this.webauthnUserHandle = webauthnUserHandle == null ? null : webauthnUserHandle.clone();
+    }
 }
