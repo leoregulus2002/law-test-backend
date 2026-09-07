@@ -13,7 +13,7 @@ import org.springframework.dao.DuplicateKeyException;
 public class WordQuestionExceptionHandler {
 
     @ExceptionHandler({ WordFileValidationException.class, WordQuestionParseException.class,
-            QuestionValidationException.class, IllegalArgumentException.class })
+            QuestionValidationException.class })
     ResponseEntity<ProblemDetail> handleInvalidWord(RuntimeException exception) {
         return ResponseEntity.badRequest().body(problemDetail(exception.getMessage()));
     }
