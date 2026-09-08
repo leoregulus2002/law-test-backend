@@ -6,6 +6,8 @@ import cn.yanzongkeji.lawtest.user.application.exception.AuthenticationFailedExc
 import cn.yanzongkeji.lawtest.user.domain.model.UserAccount;
 import cn.yanzongkeji.lawtest.user.domain.model.UserId;
 import cn.yanzongkeji.lawtest.user.domain.port.UserRepository;
+import cn.yanzongkeji.lawtest.user.domain.port.LoginProtection;
+import cn.yanzongkeji.lawtest.user.domain.model.UserStatus;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -19,13 +21,16 @@ public class AuthService implements AuthUseCase {
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
     private final TokenSessionService tokens;
+    private final LoginProtection protection;
     private final SecureRandom random = new SecureRandom();
     private final String missingAccountHash;
 
-    public AuthService(UserRepository users, PasswordEncoder passwordEncoder, TokenSessionService tokens) {
+    public AuthService(UserRepository users, PasswordEncoder passwordEncoder, TokenSessionService tokens,
+            LoginProtection protection) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.tokens = tokens;
+        this.protection = protection;
         // 与真实密码使用相同 BCrypt 成本，每个服务实例仅计算一次。
         this.missingAccountHash = passwordEncoder.encode("missing-account-timing-placeholder");
     }
@@ -56,8 +61,8 @@ public class AuthService implements AuthUseCase {
     }
 
     @Override
-    @Transactional(noRollbackFor = AuthenticationFailedException.class)
     public TokenPair passwordLogin(String username, String password) {
+        protection.checkAccountRateLimit(username);
         UserAccount user = null;
         try {
             user = users.findByUsername(UserAccount.normalizeUsername(username)).orElse(null);
@@ -69,20 +74,20 @@ public class AuthService implements AuthUseCase {
                 user != null && validPassword ? user.passwordHash() : missingAccountHash);
         if (user == null)
             throw new AuthenticationFailedException();
-        Instant now = Instant.now();
-        if (!user.isPasswordLoginAllowed(now))
+        if (user.status() != UserStatus.ACTIVE || protection.isLocked(user.id()))
             throw new AccountLockedException();
         if (!validPassword || !matches) {
-            users.recordPasswordFailure(user.id(), now);
+            protection.recordPasswordFailure(user.id());
             throw new AuthenticationFailedException();
         }
-        users.clearPasswordFailures(user.id());
+        if (!protection.clearPasswordFailures(user.id()))
+            throw new AccountLockedException();
         return tokens.issue(user);
     }
 
     @Override
     public TokenPair refresh(String refreshToken) {
-        // 不增加外层事务，保留刷新服务在重用检测失败时提交家族撤销的语义。
+        // Redis 脚本原子执行轮换及重放撤销，不参与数据库事务。
         return tokens.refresh(refreshToken);
     }
 

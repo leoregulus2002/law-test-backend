@@ -1,6 +1,9 @@
 package cn.yanzongkeji.lawtest.user.interfaces.rest.controller;
 
 import cn.yanzongkeji.lawtest.user.application.auth.AuthUseCase;
+import cn.yanzongkeji.lawtest.user.domain.port.AccessTokenDenylist;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import cn.yanzongkeji.lawtest.user.interfaces.rest.request.PasswordLoginRequest;
 import cn.yanzongkeji.lawtest.user.interfaces.rest.request.RefreshTokenRequest;
 import cn.yanzongkeji.lawtest.user.interfaces.rest.request.RegisterRequest;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "用户认证", description = "注册、密码登录与令牌管理")
 public class AuthController {
     private final AuthUseCase auth;
+    private final AccessTokenDenylist denylist;
 
     @PostMapping("/register")
     @Operation(summary = "自助注册并登录")
@@ -44,9 +48,12 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    @Operation(summary = "退出当前刷新会话")
-    public ResponseEntity<Void> logout(@RequestBody RefreshTokenRequest request) {
+    @Operation(summary = "撤销刷新令牌家族及携带的 Access Token")
+    public ResponseEntity<Void> logout(@RequestBody RefreshTokenRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
         auth.logout(request.refreshToken());
+        if (jwt != null)
+            denylist.revoke(jwt.getTokenValue(), jwt.getExpiresAt());
         return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
     }
 }

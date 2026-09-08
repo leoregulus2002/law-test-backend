@@ -3,8 +3,6 @@ package cn.yanzongkeji.lawtest.user.infrastructure.redis;
 import cn.yanzongkeji.lawtest.user.application.exception.CeremonyUnavailableException;
 import cn.yanzongkeji.lawtest.user.domain.model.AuthCeremony;
 import cn.yanzongkeji.lawtest.user.domain.port.AuthCeremonyRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.time.Duration;
 import java.util.Objects;
@@ -12,6 +10,8 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 
 /** Redis-backed, TTL-enforced storage for one-time WebAuthn ceremonies. */
 @Repository
@@ -20,7 +20,7 @@ public class RedisAuthCeremonyRepository implements AuthCeremonyRepository {
     private static final String KEY_PREFIX = "webauthn:ceremony:";
 
     private final StringRedisTemplate redis;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
 
     @Override
     public void create(AuthCeremony ceremony) {
@@ -54,16 +54,16 @@ public class RedisAuthCeremonyRepository implements AuthCeremonyRepository {
 
     private String serialize(AuthCeremony ceremony) {
         try {
-            return objectMapper.writeValueAsString(ceremony);
-        } catch (JsonProcessingException exception) {
+            return jsonMapper.writeValueAsString(ceremony);
+        } catch (JacksonException exception) {
             throw new IllegalStateException("无法序列化 WebAuthn ceremony", exception);
         }
     }
 
     private AuthCeremony deserialize(String serialized) {
         try {
-            return objectMapper.readValue(serialized, AuthCeremony.class);
-        } catch (JsonProcessingException exception) {
+            return jsonMapper.readValue(serialized, AuthCeremony.class);
+        } catch (JacksonException exception) {
             throw new CeremonyUnavailableException();
         }
     }

@@ -1,3 +1,4 @@
+
 spring:
   application:
     name: law-test
@@ -34,6 +35,13 @@ law-test:
       secret: ${JWT_SECRET:dev-only-change-this-32-byte-secret}
       access-token-ttl: PT15M
       refresh-token-ttl: P30D
+    login-protection:
+      password-failure-limit: ${AUTH_PASSWORD_FAILURE_LIMIT:5}
+      password-failure-window: ${AUTH_PASSWORD_FAILURE_WINDOW:PT15M}
+      password-lock-duration: ${AUTH_PASSWORD_LOCK_DURATION:PT15M}
+      account-limit: ${AUTH_LOGIN_ACCOUNT_LIMIT:20}
+      ip-limit: ${AUTH_LOGIN_IP_LIMIT:100}
+      rate-window: ${AUTH_LOGIN_RATE_WINDOW:PT1M}
     webauthn:
       rp-id: ${WEBAUTHN_RP_ID:localhost}
       rp-name: ${WEBAUTHN_RP_NAME:Law Test Development}
@@ -42,3 +50,5 @@ law-test:
     android:
       package-name: ${ANDROID_PACKAGE_NAME:cn.yanzongkeji.lawtest.android}
       certificate-sha256: ${ANDROID_CERTIFICATE_SHA256:DEV_CERTIFICATE_SHA256}
+server:
+  port: 9323

@@ -1,6 +1,8 @@
 package cn.yanzongkeji.lawtest.user.interfaces.rest.controller;
 
 import cn.yanzongkeji.lawtest.user.application.auth.InvalidRefreshTokenException;
+import cn.yanzongkeji.lawtest.user.application.exception.AuthStateUnavailableException;
+import cn.yanzongkeji.lawtest.user.application.exception.LoginRateLimitedException;
 import cn.yanzongkeji.lawtest.user.application.exception.AccountConflictException;
 import cn.yanzongkeji.lawtest.user.application.exception.AccountLockedException;
 import cn.yanzongkeji.lawtest.user.application.exception.AuthenticationFailedException;
@@ -52,6 +54,19 @@ public class UserAuthenticationExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<AuthErrorResponse> malformedRequest(HttpMessageNotReadableException exception) {
         return error(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", "请求 JSON 格式或字段类型无效");
+    }
+
+    @ExceptionHandler(LoginRateLimitedException.class)
+    public ResponseEntity<AuthErrorResponse> loginRateLimited(LoginRateLimitedException exception) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", Long.toString(exception.retryAfterSeconds()))
+                .cacheControl(CacheControl.noStore())
+                .body(AuthErrorResponse.of("LOGIN_RATE_LIMITED", "登录请求过于频繁"));
+    }
+
+    @ExceptionHandler(AuthStateUnavailableException.class)
+    public ResponseEntity<AuthErrorResponse> authStateUnavailable(AuthStateUnavailableException exception) {
+        return error(HttpStatus.SERVICE_UNAVAILABLE, "AUTH_STATE_UNAVAILABLE", "认证服务暂不可用");
     }
 
     @ExceptionHandler(Exception.class)

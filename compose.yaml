@@ -24,7 +24,9 @@ services:
     container_name: law-test-redis
     ports:
       - "${REDIS_PORT:-6379}:6379"
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "always", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - law-test-redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -34,3 +36,4 @@ services:
 
 volumes:
   law-test-postgres-data:
+  law-test-redis-data:

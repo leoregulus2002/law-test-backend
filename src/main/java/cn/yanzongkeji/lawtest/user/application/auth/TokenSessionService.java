@@ -4,7 +4,7 @@ import cn.yanzongkeji.lawtest.user.domain.model.RefreshSession;
 import cn.yanzongkeji.lawtest.user.domain.model.UserAccount;
 import cn.yanzongkeji.lawtest.user.domain.model.UserStatus;
 import cn.yanzongkeji.lawtest.user.domain.port.AccessTokenIssuer;
-import cn.yanzongkeji.lawtest.user.domain.port.RefreshSessionRepository;
+import cn.yanzongkeji.lawtest.user.domain.port.RefreshSessionStore;
 import cn.yanzongkeji.lawtest.user.domain.port.UserRepository;
 import cn.yanzongkeji.lawtest.user.infrastructure.configuration.AuthProperties;
 import java.nio.charset.StandardCharsets;
@@ -16,17 +16,16 @@ import java.util.Base64;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class TokenSessionService {
-    private final RefreshSessionRepository sessions;
+    private final RefreshSessionStore sessions;
     private final UserRepository users;
     private final AccessTokenIssuer accessTokens;
     private final AuthProperties.Jwt properties;
     private final SecureRandom random = new SecureRandom();
 
-    public TokenSessionService(RefreshSessionRepository sessions, UserRepository users,
+    public TokenSessionService(RefreshSessionStore sessions, UserRepository users,
             AccessTokenIssuer accessTokens, AuthProperties properties) {
         this.sessions = sessions;
         this.users = users;
@@ -36,7 +35,6 @@ public class TokenSessionService {
             throw new IllegalArgumentException("Refresh Token 有效期必须为正数");
     }
 
-    @Transactional
     public TokenPair issue(UserAccount user) {
         Objects.requireNonNull(user.id(), "签发令牌前必须保存用户");
         if (user.status() != UserStatus.ACTIVE)
@@ -44,14 +42,12 @@ public class TokenSessionService {
         return createPair(user, UUID.randomUUID(), null, Instant.now());
     }
 
-    // 重用导致的撤销必须提交，不能随对外的认证失败异常一起回滚。
-    @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
     public TokenPair refresh(String refreshToken) {
-        RefreshSession current = sessions.findByTokenHashForUpdate(hash(requireToken(refreshToken)))
+        RefreshSession current = sessions.find(hash(requireToken(refreshToken)))
                 .orElseThrow(InvalidRefreshTokenException::new);
         Instant now = Instant.now();
         if (current.usedAt() != null || current.revokedAt() != null) {
-            sessions.revokeFamily(current.tokenFamilyId(), now);
+            sessions.revokeFamily(current.tokenHash());
             throw new InvalidRefreshTokenException();
         }
         if (current.isExpired(now))
@@ -59,25 +55,27 @@ public class TokenSessionService {
         UserAccount user = users.findById(current.userId())
                 .filter(account -> account.status() == UserStatus.ACTIVE)
                 .orElseThrow(InvalidRefreshTokenException::new);
-        sessions.markUsed(current.id(), now);
-        return createPair(user, current.tokenFamilyId(), current.id(), now);
+        return createPair(user, current.tokenFamilyId(), current, now);
     }
 
-    @Transactional
     public void logout(String refreshToken) {
         if (!isTokenFormatValid(refreshToken))
             return;
-        sessions.findByTokenHashForUpdate(hash(refreshToken))
-                .ifPresent(session -> sessions.revokeActive(session.id(), Instant.now()));
+        sessions.revokeFamily(hash(refreshToken));
     }
 
-    private TokenPair createPair(UserAccount user, UUID familyId, UUID previousSessionId, Instant now) {
+    private TokenPair createPair(UserAccount user, UUID familyId, RefreshSession previous, Instant now) {
         byte[] bytes = new byte[32];
         random.nextBytes(bytes);
         String refreshToken = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         String accessToken = accessTokens.issue(user, now);
-        sessions.insert(new RefreshSession(UUID.randomUUID(), user.id(), hash(refreshToken), familyId,
-                previousSessionId, now, now.plus(properties.refreshTokenTtl()), null, null));
+        RefreshSession replacement = new RefreshSession(UUID.randomUUID(), user.id(), hash(refreshToken), familyId,
+                previous == null ? null : previous.id(), now, now.plus(properties.refreshTokenTtl()), null, null);
+        if (previous == null) {
+            sessions.create(replacement);
+        } else if (!sessions.rotate(previous, replacement)) {
+            throw new InvalidRefreshTokenException();
+        }
         return new TokenPair(accessToken, refreshToken, properties.accessTokenTtl().toSeconds());
     }
 

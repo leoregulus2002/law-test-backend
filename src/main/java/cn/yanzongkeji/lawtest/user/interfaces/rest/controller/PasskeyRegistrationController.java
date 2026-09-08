@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/users/me/passkeys/registration")
-@Tag(name = "Passkey", description = "Passkey 注册与管理")
+@Tag(name = "Passkey注册与管理", description = "Passkey 注册与管理")
 public class PasskeyRegistrationController {
     private final PasskeyRegistrationUseCase passkeys;
 

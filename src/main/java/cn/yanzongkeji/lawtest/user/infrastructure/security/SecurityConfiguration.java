@@ -1,10 +1,15 @@
 package cn.yanzongkeji.lawtest.user.infrastructure.security;
 
 import cn.yanzongkeji.lawtest.user.infrastructure.configuration.AuthProperties;
+import cn.yanzongkeji.lawtest.user.domain.port.AccessTokenDenylist;
+import cn.yanzongkeji.lawtest.user.domain.port.LoginProtection;
+import cn.yanzongkeji.lawtest.user.application.exception.AuthStateUnavailableException;
 import cn.yanzongkeji.lawtest.user.interfaces.rest.response.AuthErrorResponse;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,6 +21,11 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtException;
+import org.springframework.security.oauth2.jwt.BadJwtException;
+import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
@@ -28,17 +38,38 @@ import tools.jackson.databind.ObjectMapper;
 @Configuration(proxyBeanMethods = false)
 public class SecurityConfiguration {
     @Bean
-    JwtDecoder jwtDecoder(AuthProperties properties) {
+    JwtDecoder jwtDecoder(AuthProperties properties, AccessTokenDenylist denylist) {
         SecretKeySpec key = new SecretKeySpec(properties.jwt().secret().getBytes(StandardCharsets.UTF_8),
                 "HmacSHA256");
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
-        decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(properties.jwt().issuer()));
-        return decoder;
+        // 黑名单在 exp 到期时删除，因此不能允许默认的过期宽限期重新放行令牌。
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                JwtValidators.createDefaultWithIssuer(properties.jwt().issuer()),
+                new JwtTimestampValidator(Duration.ZERO)));
+        return token -> {
+            var jwt = decoder.decode(token);
+            if (jwt.getExpiresAt() == null || !Instant.now().isBefore(jwt.getExpiresAt()))
+                throw new BadJwtException("Access Token 已过期或缺少过期时间");
+            try {
+                if (denylist.isRevoked(token))
+                    throw new BadJwtException("Access Token 已注销");
+            } catch (AuthStateUnavailableException exception) {
+                throw new JwtException("认证状态服务暂不可用", exception);
+            }
+            return jwt;
+        };
     }
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper objectMapper) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper objectMapper,
+            LoginProtection protection) throws Exception {
         AuthenticationEntryPoint unauthorized = (request, response, exception) -> {
+            for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+                if (cause instanceof AuthStateUnavailableException) {
+                    writeError(response, objectMapper, 503, "AUTH_STATE_UNAVAILABLE", "认证服务暂不可用");
+                    return;
+                }
+            }
             response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
             writeError(response, objectMapper, 401, "AUTHENTICATION_FAILED", "账号或凭证无效");
         };
@@ -50,7 +81,8 @@ public class SecurityConfiguration {
         JwtAuthenticationConverter authentication = new JwtAuthenticationConverter();
         authentication.setJwtGrantedAuthoritiesConverter(authorities);
 
-        http.csrf(AbstractHttpConfigurer::disable)
+        http.addFilterBefore(new LoginIpRateLimitFilter(protection, objectMapper), BearerTokenAuthenticationFilter.class)
+                .csrf(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)

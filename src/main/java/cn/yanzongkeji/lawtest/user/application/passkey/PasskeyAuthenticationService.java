@@ -5,6 +5,10 @@ import cn.yanzongkeji.lawtest.user.application.auth.TokenSessionService;
 import cn.yanzongkeji.lawtest.user.application.exception.AuthenticationFailedException;
 import cn.yanzongkeji.lawtest.user.domain.model.AuthCeremony;
 import cn.yanzongkeji.lawtest.user.domain.model.UserAccount;
+import cn.yanzongkeji.lawtest.user.domain.model.UserStatus;
+import cn.yanzongkeji.lawtest.user.domain.port.LoginProtection;
+import cn.yanzongkeji.lawtest.user.application.exception.AuthStateUnavailableException;
+import cn.yanzongkeji.lawtest.user.application.exception.LoginRateLimitedException;
 import cn.yanzongkeji.lawtest.user.domain.port.AuthCeremonyRepository;
 import cn.yanzongkeji.lawtest.user.domain.port.UserRepository;
 import cn.yanzongkeji.lawtest.user.infrastructure.configuration.AuthProperties;
@@ -39,16 +43,18 @@ public class PasskeyAuthenticationService implements PasskeyAuthenticationUseCas
     private final AuthCeremonyRepository ceremonies;
     private final WebAuthnRelyingPartyOperations relyingParty;
     private final TokenSessionService tokens;
+    private final LoginProtection protection;
     private final ObjectMapper objectMapper;
     private final AuthProperties.WebAuthn webauthn;
 
     public PasskeyAuthenticationService(UserRepository users, AuthCeremonyRepository ceremonies,
             WebAuthnRelyingPartyOperations relyingParty, TokenSessionService tokens, ObjectMapper objectMapper,
-            AuthProperties properties) {
+            AuthProperties properties, LoginProtection protection) {
         this.users = users;
         this.ceremonies = ceremonies;
         this.relyingParty = relyingParty;
         this.tokens = tokens;
+        this.protection = protection;
         this.objectMapper = objectMapper;
         this.webauthn = properties.webauthn();
     }
@@ -56,6 +62,7 @@ public class PasskeyAuthenticationService implements PasskeyAuthenticationUseCas
     @Override
     @Transactional
     public PasskeyOptions<PublicKeyCredentialRequestOptions> beginAuthentication(String username) {
+        protection.checkAccountRateLimit(username);
         UserAccount user = findEligibleUser(username);
         boolean dummy = user == null;
         PublicKeyCredentialRequestOptions options = dummy ? dummyOptions() : requestOptions(user);
@@ -75,19 +82,21 @@ public class PasskeyAuthenticationService implements PasskeyAuthenticationUseCas
         if (ceremony.dummy() || ceremony.userId() == null) {
             throw new AuthenticationFailedException();
         }
+        UserAccount user = users.findById(ceremony.userId()).orElseThrow(AuthenticationFailedException::new);
+        protection.checkAccountRateLimit(user.username());
+        if (user.status() != UserStatus.ACTIVE || protection.isLocked(user.id()))
+            throw new AuthenticationFailedException();
         try {
             var entity = relyingParty.authenticate(new RelyingPartyAuthenticationRequest(
                     read(ceremony.optionsJson(), PublicKeyCredentialRequestOptions.class), credential));
-            UserAccount user = users.findById(ceremony.userId()).orElseThrow(AuthenticationFailedException::new);
             if (entity == null || !java.util.Arrays.equals(entity.getId().getBytes(), user.webauthnUserHandle())) {
                 throw new AuthenticationFailedException();
             }
-            if (!user.isPasswordLoginAllowed(Instant.now())) {
+            if (!protection.clearPasswordFailures(user.id())) {
                 throw new AuthenticationFailedException();
             }
-            users.clearPasswordFailures(user.id());
             return tokens.issue(user);
-        } catch (AuthenticationFailedException exception) {
+        } catch (AuthenticationFailedException | AuthStateUnavailableException | LoginRateLimitedException exception) {
             throw exception;
         } catch (RuntimeException exception) {
             LOG.warn("Passkey authentication failed category={} ceremonyId={}",
@@ -99,7 +108,7 @@ public class PasskeyAuthenticationService implements PasskeyAuthenticationUseCas
     private UserAccount findEligibleUser(String username) {
         try {
             UserAccount user = users.findByUsername(UserAccount.normalizeUsername(username)).orElse(null);
-            if (user == null || !user.isPasswordLoginAllowed(Instant.now())) {
+            if (user == null || user.status() != UserStatus.ACTIVE || protection.isLocked(user.id())) {
                 return null;
             }
             // The adapter only returns this user's credentials, so an empty allow-list is safe to

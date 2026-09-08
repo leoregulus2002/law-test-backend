@@ -15,14 +15,11 @@ public final class UserAccount {
     private final String passwordHash;
     private final byte[] webauthnUserHandle;
     private final UserStatus status;
-    private final int failedLoginAttempts;
-    private final Instant lockedUntil;
     private final Instant createdAt;
     private final Instant updatedAt;
 
     private UserAccount(UserId id, String username, String displayName, String passwordHash,
-            byte[] webauthnUserHandle, UserStatus status, int failedLoginAttempts,
-            Instant lockedUntil, Instant createdAt, Instant updatedAt) {
+            byte[] webauthnUserHandle, UserStatus status, Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.username = normalizeUsername(username);
         if (displayName == null || displayName.isBlank())
@@ -37,10 +34,6 @@ public final class UserAccount {
             throw new IllegalArgumentException("WebAuthn 用户标识必须为 32 字节");
         this.webauthnUserHandle = webauthnUserHandle.clone();
         this.status = Objects.requireNonNull(status, "用户状态不能为空");
-        if (failedLoginAttempts < 0)
-            throw new IllegalArgumentException("登录失败次数不能为负数");
-        this.failedLoginAttempts = failedLoginAttempts;
-        this.lockedUntil = lockedUntil;
         this.createdAt = Objects.requireNonNull(createdAt, "创建时间不能为空");
         this.updatedAt = Objects.requireNonNull(updatedAt, "更新时间不能为空");
     }
@@ -48,14 +41,13 @@ public final class UserAccount {
     public static UserAccount register(String username, String displayName, String passwordHash,
             byte[] webauthnUserHandle, Instant now) {
         return new UserAccount(null, username, displayName, passwordHash, webauthnUserHandle,
-                UserStatus.ACTIVE, 0, null, now, now);
+                UserStatus.ACTIVE, now, now);
     }
 
     public static UserAccount reconstitute(UserId id, String username, String displayName,
-            String passwordHash, byte[] webauthnUserHandle, UserStatus status, int failedLoginAttempts,
-            Instant lockedUntil, Instant createdAt, Instant updatedAt) {
+            String passwordHash, byte[] webauthnUserHandle, UserStatus status, Instant createdAt, Instant updatedAt) {
         return new UserAccount(Objects.requireNonNull(id, "用户 ID 不能为空"), username, displayName,
-                passwordHash, webauthnUserHandle, status, failedLoginAttempts, lockedUntil, createdAt, updatedAt);
+                passwordHash, webauthnUserHandle, status, createdAt, updatedAt);
     }
 
     public static String normalizeUsername(String username) {
@@ -65,11 +57,6 @@ public final class UserAccount {
         if (!USERNAME_PATTERN.matcher(normalized).matches())
             throw new IllegalArgumentException("用户名必须为 4–64 位字母、数字、点、下划线或连字符");
         return normalized;
-    }
-
-    public boolean isPasswordLoginAllowed(Instant now) {
-        Objects.requireNonNull(now, "当前时间不能为空");
-        return status == UserStatus.ACTIVE && (lockedUntil == null || !now.isBefore(lockedUntil));
     }
 
     public UserId id() {
@@ -95,14 +82,6 @@ public final class UserAccount {
 
     public UserStatus status() {
         return status;
-    }
-
-    public int failedLoginAttempts() {
-        return failedLoginAttempts;
-    }
-
-    public Instant lockedUntil() {
-        return lockedUntil;
     }
 
     public Instant createdAt() {
