@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.yanzongkeji.lawtest.question.infrastructure.persistence.mapper.UserPracticeQueryMapper">
+    <select id="findWrongQuestionIdsAfter" resultType="long">
+        select progress.question_id from user_question_progress progress
+        join question on question.id = progress.question_id and question.status = 'ACTIVE'
+        where progress.user_id = #{userId} and progress.status = 'WRONG'
+        <if test="cursor != null">and question_id &gt; #{cursor}</if>
+        order by question_id
+        limit #{limit}
+    </select>
+
+    <select id="countWrongQuestionIds" resultType="long">
+        select count(*) from user_question_progress progress
+        join question on question.id = progress.question_id and question.status = 'ACTIVE'
+        where progress.user_id = #{userId} and progress.status = 'WRONG'
+    </select>
+
+    <select id="findSequentialQuestionId" resultType="long">
+        select question_id from user_sequential_progress where user_id = #{userId} and scope_key = #{scopeKey}
+    </select>
+
+    <insert id="upsertSequentialQuestionId">
+        insert into user_sequential_progress (user_id, scope_key, question_id, updated_at)
+        values (#{userId}, #{scopeKey}, #{questionId}, current_timestamp)
+        on conflict (user_id, scope_key) do update
+        set question_id = excluded.question_id, updated_at = current_timestamp
+    </insert>
+</mapper>

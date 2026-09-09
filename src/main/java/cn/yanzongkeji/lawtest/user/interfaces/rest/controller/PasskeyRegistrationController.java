@@ -37,7 +37,7 @@ public class PasskeyRegistrationController {
         return ResponseEntity.status(201).cacheControl(CacheControl.noStore()).build();
     }
 
-    static UserId currentUser(JwtAuthenticationToken authentication) {
+    public static UserId currentUser(JwtAuthenticationToken authentication) {
         try {
             return new UserId(Long.parseLong(authentication.getToken().getSubject()));
         } catch (RuntimeException exception) {
