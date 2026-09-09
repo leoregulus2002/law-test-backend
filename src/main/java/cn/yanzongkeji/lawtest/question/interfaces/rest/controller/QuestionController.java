@@ -7,6 +7,7 @@ import cn.yanzongkeji.lawtest.question.application.dto.QuestionPage;
 import cn.yanzongkeji.lawtest.question.application.query.QuestionQueryUseCase;
 import cn.yanzongkeji.lawtest.question.domain.model.Question;
 import cn.yanzongkeji.lawtest.question.interfaces.rest.request.QuestionUpsertRequest;
+import cn.yanzongkeji.lawtest.question.interfaces.rest.request.QuestionStatusUpdateRequest;
 import cn.yanzongkeji.lawtest.question.interfaces.rest.response.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -29,6 +30,15 @@ public class QuestionController {
         QuestionPage<Question> r = query.questions(bankId, page, size);
         return new PageResponse<>(r.items().stream().map(QuestionDetailResponse::from).toList(), r.page(), r.size(),
                 r.total());
+    }
+
+    @GetMapping("/questions")
+    @Operation(summary = "分页查询全部题目")
+    public PageResponse<QuestionListResponse> list(@RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        QuestionPage<cn.yanzongkeji.lawtest.question.application.dto.QuestionListItem> result = query.questions(page, size);
+        return new PageResponse<>(result.items().stream().map(QuestionListResponse::from).toList(), result.page(),
+                result.size(), result.total());
     }
 
     @GetMapping("/questions/{id}")
@@ -65,6 +75,12 @@ public class QuestionController {
     @Operation(summary = "完整更新题目")
     public QuestionDetailResponse replace(@PathVariable long id, @RequestBody QuestionUpsertRequest request) {
         return QuestionDetailResponse.from(commands.replace(id, toCommand(request)));
+    }
+
+    @PatchMapping("/questions/{id}/status")
+    @Operation(summary = "更新题目状态")
+    public QuestionDetailResponse changeStatus(@PathVariable long id, @RequestBody QuestionStatusUpdateRequest request) {
+        return QuestionDetailResponse.from(commands.changeStatus(id, request.status()));
     }
 
     @DeleteMapping("/questions/{id}")

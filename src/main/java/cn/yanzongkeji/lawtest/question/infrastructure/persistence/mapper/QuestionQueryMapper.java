@@ -3,6 +3,7 @@ package cn.yanzongkeji.lawtest.question.infrastructure.persistence.mapper;
 import cn.yanzongkeji.lawtest.question.infrastructure.persistence.dataobject.QuestionAnswerDO;
 import cn.yanzongkeji.lawtest.question.infrastructure.persistence.dataobject.QuestionDO;
 import cn.yanzongkeji.lawtest.question.infrastructure.persistence.dataobject.QuestionOptionDO;
+import cn.yanzongkeji.lawtest.question.infrastructure.persistence.dataobject.QuestionListItemDO;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -14,7 +15,7 @@ public interface QuestionQueryMapper {
 
     /** 按题号和主键稳定排序后分页查询题目主表。 */
     @Select("""
-            select id, question_bank_id, sequence_no, stem, analysis, question_type
+            select id, question_bank_id, sequence_no, stem, analysis, question_type, status
             from question
             where question_bank_id=#{questionBankId}
             order by sequence_no, id
@@ -22,6 +23,17 @@ public interface QuestionQueryMapper {
             """)
     List<QuestionDO> findPageByBankId(@Param("questionBankId") long questionBankId,
             @Param("offset") int offset, @Param("limit") int limit);
+
+    @Select("""
+            select q.id, q.question_bank_id, b.name as question_bank_name, q.sequence_no, q.stem, q.question_type, q.status
+            from question q join question_bank b on b.id = q.question_bank_id
+            order by q.id desc
+            limit #{limit} offset #{offset}
+            """)
+    List<QuestionListItemDO> findPage(@Param("offset") int offset, @Param("limit") int limit);
+
+    @Select("select count(*) from question")
+    long count();
 
     /** 统计指定题库的题目数量。 */
     @Select("select count(*) from question where question_bank_id=#{questionBankId}")
@@ -56,9 +68,9 @@ public interface QuestionQueryMapper {
     /** 统计全部或指定题库范围内的题目数量。 */
     @Select({
             "<script>",
-            "select count(*) from question",
+            "select count(*) from question where status = 'ACTIVE'",
             "<if test='questionBankIds != null and questionBankIds.size() > 0'>",
-            "where question_bank_id in",
+            "and question_bank_id in",
             "<foreach collection='questionBankIds' item='questionBankId' open='(' separator=',' close=')'>",
             "#{questionBankId}",
             "</foreach>",
@@ -72,8 +84,9 @@ public interface QuestionQueryMapper {
             "<script>",
             "select id from question",
             "<where>",
+            "status = 'ACTIVE'",
             "<if test='questionBankIds != null and questionBankIds.size() > 0'>",
-            "question_bank_id in",
+            "and question_bank_id in",
             "<foreach collection='questionBankIds' item='questionBankId' open='(' separator=',' close=')'>",
             "#{questionBankId}",
             "</foreach>",
@@ -89,9 +102,9 @@ public interface QuestionQueryMapper {
     /** 使用 PostgreSQL 随机排序选取一个题目 ID。 */
     @Select({
             "<script>",
-            "select id from question",
+            "select id from question where status = 'ACTIVE'",
             "<if test='questionBankIds != null and questionBankIds.size() > 0'>",
-            "where question_bank_id in",
+            "and question_bank_id in",
             "<foreach collection='questionBankIds' item='questionBankId' open='(' separator=',' close=')'>",
             "#{questionBankId}",
             "</foreach>",

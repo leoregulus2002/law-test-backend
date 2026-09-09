@@ -10,6 +10,9 @@ public interface QuestionMapper extends BaseMapper<QuestionDO> {
     @Update("update question set sequence_no=#{sequenceNo}, stem=#{stem}, analysis=#{analysis}, question_type=#{questionType}, updated_at=current_timestamp where id=#{id}")
     int updateContent(QuestionDO data);
 
+    @Update("update question set status=#{status}, updated_at=current_timestamp where id=#{id}")
+    int updateStatus(@Param("id") long id, @Param("status") String status);
+
     /** 删除指定题库的全部题目主表记录。 */
     @Delete("delete from question where question_bank_id=#{questionBankId}")
     int deleteByBankId(@Param("questionBankId") long questionBankId);

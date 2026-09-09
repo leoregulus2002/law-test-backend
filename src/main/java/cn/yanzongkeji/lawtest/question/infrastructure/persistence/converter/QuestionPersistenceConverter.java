@@ -20,6 +20,7 @@ public final class QuestionPersistenceConverter {
         data.setStem(question.stem());
         data.setAnalysis(question.analysis());
         data.setQuestionType(question.type().name());
+        data.setStatus(question.status().name());
         return data;
     }
 
@@ -36,6 +37,7 @@ public final class QuestionPersistenceConverter {
         return Question.reconstitute(new QuestionId(question.getId()),
                 new QuestionBankId(question.getQuestionBankId()), new QuestionNumber(question.getSequenceNo()),
                 question.getStem(), domainOptions, new AnswerKey(answerLabels),
-                QuestionType.valueOf(question.getQuestionType()), question.getAnalysis());
+                QuestionType.valueOf(question.getQuestionType()), question.getAnalysis(),
+                QuestionStatus.valueOf(question.getStatus()));
     }
 }

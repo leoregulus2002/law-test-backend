@@ -2,6 +2,7 @@ package cn.yanzongkeji.lawtest.question.application.query;
 
 import cn.yanzongkeji.lawtest.question.application.dto.QuestionPage;
 import cn.yanzongkeji.lawtest.question.application.dto.QuestionIdCursorPage;
+import cn.yanzongkeji.lawtest.question.application.dto.QuestionListItem;
 import cn.yanzongkeji.lawtest.question.application.exception.*;
 
 import cn.yanzongkeji.lawtest.question.domain.model.*;
@@ -32,6 +33,11 @@ public class QuestionQueryService implements QuestionQueryUseCase {
         int[] p = page(page, size);
         return new QuestionPage<>(managementQuery.findPageByBankId(id, p[0], p[1]), page, p[1],
                 managementQuery.countByBankId(id));
+    }
+
+    public QuestionPage<QuestionListItem> questions(int page, int size) {
+        int[] p = page(page, size);
+        return new QuestionPage<>(managementQuery.findPage(p[0], p[1]), page, p[1], managementQuery.count());
     }
 
     public Question question(long id) {

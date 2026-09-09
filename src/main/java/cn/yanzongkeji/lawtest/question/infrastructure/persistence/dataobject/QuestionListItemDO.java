@@ -1,20 +1,15 @@
 package cn.yanzongkeji.lawtest.question.infrastructure.persistence.dataobject;
 
-import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 
+/** 题目主表与题库名称的管理端列表投影。 */
 @Data
-@TableName("question")
-public class QuestionDO {
-    @TableId(type = IdType.AUTO)
+public class QuestionListItemDO {
     private Long id;
-    @TableField("question_bank_id")
     private Long questionBankId;
-    @TableField("sequence_no")
+    private String questionBankName;
     private Integer sequenceNo;
     private String stem;
-    private String analysis;
-    @TableField("question_type")
     private String questionType;
     private String status;
 }

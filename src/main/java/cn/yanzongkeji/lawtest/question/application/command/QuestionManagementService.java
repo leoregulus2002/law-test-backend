@@ -40,6 +40,16 @@ public class QuestionManagementService implements QuestionManagementUseCase {
 
     @Override
     @Transactional
+    public Question changeStatus(long questionId, QuestionStatus status) {
+        Question existing = questions.findById(new QuestionId(questionId))
+                .orElseThrow(() -> new QuestionNotFoundException(questionId));
+        existing.changeStatus(status);
+        questions.updateStatus(existing.id(), status);
+        return existing;
+    }
+
+    @Override
+    @Transactional
     public void deleteQuestion(long questionId) {
         if (!questions.deleteById(new QuestionId(questionId)))
             throw new QuestionNotFoundException(questionId);

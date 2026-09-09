@@ -9,6 +9,8 @@ public interface QuestionManagementUseCase {
 
     Question replace(long questionId, QuestionCommand command);
 
+    Question changeStatus(long questionId, QuestionStatus status);
+
     void deleteQuestion(long questionId);
 
     void deleteQuestionBank(long bankId);

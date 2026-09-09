@@ -67,6 +67,10 @@ public class MyBatisPlusQuestionRepository implements QuestionRepository {
                 optionMapper.findByQuestionId(id.value()), answerMapper.findByQuestionId(id.value())));
     }
 
+    public boolean updateStatus(QuestionId id, QuestionStatus status) {
+        return questionMapper.updateStatus(id.value(), status.name()) > 0;
+    }
+
     public boolean deleteById(QuestionId id) {
         clearChildren(id.value());
         return questionMapper.deleteById(id.value()) > 0;

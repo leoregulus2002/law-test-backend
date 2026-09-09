@@ -3,6 +3,9 @@ package cn.yanzongkeji.lawtest.question.infrastructure.persistence.query;
 import cn.yanzongkeji.lawtest.question.application.query.QuestionManagementQuery;
 import cn.yanzongkeji.lawtest.question.domain.model.Question;
 import cn.yanzongkeji.lawtest.question.domain.model.QuestionBankId;
+import cn.yanzongkeji.lawtest.question.domain.model.QuestionStatus;
+import cn.yanzongkeji.lawtest.question.domain.model.QuestionType;
+import cn.yanzongkeji.lawtest.question.application.dto.QuestionListItem;
 import cn.yanzongkeji.lawtest.question.infrastructure.persistence.converter.QuestionPersistenceConverter;
 import cn.yanzongkeji.lawtest.question.infrastructure.persistence.dataobject.QuestionAnswerDO;
 import cn.yanzongkeji.lawtest.question.infrastructure.persistence.dataobject.QuestionDO;
@@ -44,5 +47,19 @@ public class MyBatisPlusQuestionManagementQuery implements QuestionManagementQue
     @Override
     public long countByBankId(QuestionBankId bankId) {
         return queryMapper.countByBankId(bankId.value());
+    }
+
+    @Override
+    public List<QuestionListItem> findPage(int offset, int limit) {
+        return queryMapper.findPage(offset, limit).stream()
+                .map(item -> new QuestionListItem(item.getId(), item.getQuestionBankId(), item.getQuestionBankName(),
+                        item.getSequenceNo(), item.getStem(), QuestionType.valueOf(item.getQuestionType()),
+                        QuestionStatus.valueOf(item.getStatus())))
+                .toList();
+    }
+
+    @Override
+    public long count() {
+        return queryMapper.count();
     }
 }

@@ -4,6 +4,7 @@ import cn.yanzongkeji.lawtest.question.domain.model.Question;
 
 import cn.yanzongkeji.lawtest.question.domain.model.QuestionBankId;
 import cn.yanzongkeji.lawtest.question.domain.model.QuestionId;
+import cn.yanzongkeji.lawtest.question.domain.model.QuestionStatus;
 import java.util.Collection;
 import java.util.Optional;
 
@@ -17,6 +18,8 @@ public interface QuestionRepository {
     QuestionId save(Question question);
 
     Optional<Question> findById(QuestionId questionId);
+
+    boolean updateStatus(QuestionId questionId, QuestionStatus status);
 
     boolean deleteById(QuestionId questionId);
 

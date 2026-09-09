@@ -2,6 +2,7 @@ package cn.yanzongkeji.lawtest.question.application.query;
 
 import cn.yanzongkeji.lawtest.question.application.dto.QuestionPage;
 import cn.yanzongkeji.lawtest.question.application.dto.QuestionIdCursorPage;
+import cn.yanzongkeji.lawtest.question.application.dto.QuestionListItem;
 
 import cn.yanzongkeji.lawtest.question.domain.model.*;
 import java.util.List;
@@ -12,6 +13,8 @@ public interface QuestionQueryUseCase {
     QuestionBank questionBank(long id);
 
     QuestionPage<Question> questions(long bankId, int page, int size);
+
+    QuestionPage<QuestionListItem> questions(int page, int size);
 
     Question question(long id);
 
