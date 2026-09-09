@@ -18,10 +18,13 @@ public final class QuestionBank {
 
     public static QuestionBank create(String sourceFileName, QuestionBankCode code) {
         String normalizedFileName = normalizeFileName(sourceFileName);
-        String name = normalizedFileName.replaceFirst("(?i)\\.docx$", "").strip();
-        if (name.isBlank())
-            throw new IllegalArgumentException("题库名称不能为空");
-        return new QuestionBank(null, Objects.requireNonNull(code, "题库编码不能为空"), name, normalizedFileName);
+        return create(normalizedFileName, code, normalizedFileName.replaceFirst("(?i)\\.docx$", ""));
+    }
+
+    public static QuestionBank create(String sourceFileName, QuestionBankCode code, String name) {
+        String normalizedFileName = normalizeFileName(sourceFileName);
+        return new QuestionBank(null, Objects.requireNonNull(code, "题库编码不能为空"),
+                requireText(name, "题库名称不能为空"), normalizedFileName);
     }
 
     public static QuestionBank reconstitute(QuestionBankId id, QuestionBankCode code, String name,

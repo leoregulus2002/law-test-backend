@@ -7,7 +7,11 @@ import java.io.InputStream;
 import java.util.List;
 
 public interface ImportWordQuestionsUseCase {
-    ImportResult importWord(String fileName, InputStream content, QuestionType questionType) throws IOException;
+    ImportResult importWord(String fileName, InputStream content, QuestionType questionType, String questionBankName) throws IOException;
+
+    default ImportResult importWord(String fileName, InputStream content, QuestionType questionType) throws IOException {
+        return importWord(fileName, content, questionType, null);
+    }
 
     record ImportResult(long questionBankId, String questionBankCode, boolean imported, List<Question> questions) {
     }

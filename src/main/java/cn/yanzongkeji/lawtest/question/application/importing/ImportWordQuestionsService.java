@@ -19,14 +19,16 @@ public class ImportWordQuestionsService implements ImportWordQuestionsUseCase {
 
     @Override
     @Transactional
-    public ImportResult importWord(String fileName, InputStream content, QuestionType questionType) throws IOException {
+    public ImportResult importWord(String fileName, InputStream content, QuestionType questionType, String questionBankName) throws IOException {
         validate(fileName, content, questionType);
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             List<Question> parsed = parser.parse(new DigestInputStream(content, digest), questionType);
             ensureDistinctNumbers(parsed);
             String hash = HexFormat.of().formatHex(digest.digest());
-            QuestionBank bank = QuestionBank.create(fileName, new QuestionBankCode(hash));
+            QuestionBank bank = questionBankName == null || questionBankName.isBlank()
+                    ? QuestionBank.create(fileName, new QuestionBankCode(hash))
+                    : QuestionBank.create(fileName, new QuestionBankCode(hash), questionBankName);
             QuestionBankRepository.ImportResult saved = banks.createIfAbsent(bank);
             if (saved.imported())
                 questions.saveAll(saved.questionBankId(), parsed);
