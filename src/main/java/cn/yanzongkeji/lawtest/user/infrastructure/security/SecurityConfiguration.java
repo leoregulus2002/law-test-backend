@@ -33,10 +33,19 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtGra
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.config.Customizer;
+import java.util.List;
 import tools.jackson.databind.ObjectMapper;
 
 @Configuration(proxyBeanMethods = false)
 public class SecurityConfiguration {
+    private static final Logger LOG = LoggerFactory.getLogger(SecurityConfiguration.class);
+
     @Bean
     JwtDecoder jwtDecoder(AuthProperties properties, AccessTokenDenylist denylist) {
         SecretKeySpec key = new SecretKeySpec(properties.jwt().secret().getBytes(StandardCharsets.UTF_8),
@@ -66,15 +75,22 @@ public class SecurityConfiguration {
         AuthenticationEntryPoint unauthorized = (request, response, exception) -> {
             for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
                 if (cause instanceof AuthStateUnavailableException) {
+                    LOG.error("Authentication state is unavailable: method={} path={}",
+                            request.getMethod(), request.getRequestURI(), exception);
                     writeError(response, objectMapper, 503, "AUTH_STATE_UNAVAILABLE", "认证服务暂不可用");
                     return;
                 }
             }
+            LOG.warn("Authentication failed: method={} path={} exceptionType={}",
+                    request.getMethod(), request.getRequestURI(), exception.getClass().getSimpleName());
             response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
             writeError(response, objectMapper, 401, "AUTHENTICATION_FAILED", "账号或凭证无效");
         };
-        AccessDeniedHandler forbidden = (request, response, exception) ->
-                writeError(response, objectMapper, 403, "ACCESS_DENIED", "无权访问该资源");
+        AccessDeniedHandler forbidden = (request, response, exception) -> {
+            LOG.warn("Access denied: method={} path={} exceptionType={}",
+                    request.getMethod(), request.getRequestURI(), exception.getClass().getSimpleName());
+            writeError(response, objectMapper, 403, "ACCESS_DENIED", "无权访问该资源");
+        };
         JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
         authorities.setAuthoritiesClaimName("roles");
         authorities.setAuthorityPrefix("ROLE_");
@@ -82,6 +98,7 @@ public class SecurityConfiguration {
         authentication.setJwtGrantedAuthoritiesConverter(authorities);
 
         http.addFilterBefore(new LoginIpRateLimitFilter(protection, objectMapper), BearerTokenAuthenticationFilter.class)
+                .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
@@ -89,14 +106,19 @@ public class SecurityConfiguration {
                 .requestCache(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(requests -> requests
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/auth/register", "/api/v1/auth/password/login",
+                                "/api/v1/auth/admin/password/login",
                                 "/api/v1/auth/token/refresh", "/api/v1/auth/logout",
                                 "/api/v1/auth/passkeys/authentication/options",
-                                "/api/v1/auth/passkeys/authentication/verify").permitAll()
+                                "/api/v1/auth/passkeys/authentication/verify",
+                                "/api/v1/auth/passkeys/authentication/admin/options",
+                                "/api/v1/auth/passkeys/authentication/admin/verify").permitAll()
                         .requestMatchers(HttpMethod.GET, "/.well-known/assetlinks.json", "/actuator/health",
                                 "/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**",
                                 "/doc.html", "/webjars/**").permitAll()
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/**").authenticated()
                         .anyRequest().denyAll())
                 .exceptionHandling(errors -> errors.authenticationEntryPoint(unauthorized)
@@ -105,6 +127,20 @@ public class SecurityConfiguration {
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(authentication))
                         .authenticationEntryPoint(unauthorized).accessDeniedHandler(forbidden));
         return http.build();
+    }
+
+    @Bean
+    CorsConfigurationSource corsConfigurationSource(AuthProperties properties) {
+        CorsConfiguration cors = new CorsConfiguration();
+        cors.setAllowedOrigins(properties.webauthn().allowedOrigins().stream()
+                .filter(origin -> origin.startsWith("http://") || origin.startsWith("https://")).toList());
+        cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        cors.setAllowedHeaders(List.of(HttpHeaders.AUTHORIZATION, HttpHeaders.CONTENT_TYPE));
+        cors.setExposedHeaders(List.of(HttpHeaders.WWW_AUTHENTICATE));
+        cors.setMaxAge(3600L);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/**", cors);
+        return source;
     }
 
     private static void writeError(HttpServletResponse response, ObjectMapper mapper, int status,

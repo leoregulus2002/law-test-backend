@@ -21,22 +21,20 @@ import org.springframework.security.web.webauthn.management.RelyingPartyPublicKe
 import org.springframework.security.web.webauthn.management.WebAuthnRelyingPartyOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class PasskeyRegistrationService implements PasskeyRegistrationUseCase {
+    private static final WebAuthnCeremonyOptionsCodec OPTIONS_CODEC = new WebAuthnCeremonyOptionsCodec();
+
     private final UserRepository users;
     private final AuthCeremonyRepository ceremonies;
     private final WebAuthnRelyingPartyOperations relyingParty;
-    private final ObjectMapper objectMapper;
 
     public PasskeyRegistrationService(UserRepository users, AuthCeremonyRepository ceremonies,
-            WebAuthnRelyingPartyOperations relyingParty, ObjectMapper objectMapper) {
+            WebAuthnRelyingPartyOperations relyingParty) {
         this.users = users;
         this.ceremonies = ceremonies;
         this.relyingParty = relyingParty;
-        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -78,20 +76,12 @@ public class PasskeyRegistrationService implements PasskeyRegistrationUseCase {
         }
     }
 
-    private String write(Object options) {
-        try {
-            return objectMapper.writeValueAsString(options);
-        } catch (JacksonException exception) {
-            throw new IllegalStateException("无法保存 WebAuthn ceremony", exception);
-        }
+    private String write(PublicKeyCredentialCreationOptions options) {
+        return OPTIONS_CODEC.write(options);
     }
 
-    private <T> T read(String json, Class<T> type) {
-        try {
-            return objectMapper.readValue(json, type);
-        } catch (JacksonException exception) {
-            throw new IllegalStateException("WebAuthn ceremony 数据损坏", exception);
-        }
+    private <T> T read(String encoded, Class<T> type) {
+        return OPTIONS_CODEC.read(encoded, type);
     }
 
     private static String validateLabel(String label) {

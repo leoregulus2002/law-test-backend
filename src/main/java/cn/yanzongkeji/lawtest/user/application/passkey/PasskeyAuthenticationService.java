@@ -6,6 +6,7 @@ import cn.yanzongkeji.lawtest.user.application.exception.AuthenticationFailedExc
 import cn.yanzongkeji.lawtest.user.domain.model.AuthCeremony;
 import cn.yanzongkeji.lawtest.user.domain.model.UserAccount;
 import cn.yanzongkeji.lawtest.user.domain.model.UserStatus;
+import cn.yanzongkeji.lawtest.user.domain.model.UserRole;
 import cn.yanzongkeji.lawtest.user.domain.port.LoginProtection;
 import cn.yanzongkeji.lawtest.user.application.exception.AuthStateUnavailableException;
 import cn.yanzongkeji.lawtest.user.application.exception.LoginRateLimitedException;
@@ -31,39 +32,46 @@ import org.springframework.security.web.webauthn.management.RelyingPartyAuthenti
 import org.springframework.security.web.webauthn.management.WebAuthnRelyingPartyOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class PasskeyAuthenticationService implements PasskeyAuthenticationUseCase {
     private static final Logger LOG = LoggerFactory.getLogger(PasskeyAuthenticationService.class);
     private static final SecureRandom RANDOM = new SecureRandom();
+    private static final WebAuthnCeremonyOptionsCodec OPTIONS_CODEC = new WebAuthnCeremonyOptionsCodec();
 
     private final UserRepository users;
     private final AuthCeremonyRepository ceremonies;
     private final WebAuthnRelyingPartyOperations relyingParty;
     private final TokenSessionService tokens;
     private final LoginProtection protection;
-    private final ObjectMapper objectMapper;
     private final AuthProperties.WebAuthn webauthn;
 
     public PasskeyAuthenticationService(UserRepository users, AuthCeremonyRepository ceremonies,
-            WebAuthnRelyingPartyOperations relyingParty, TokenSessionService tokens, ObjectMapper objectMapper,
-            AuthProperties properties, LoginProtection protection) {
+            WebAuthnRelyingPartyOperations relyingParty, TokenSessionService tokens, AuthProperties properties,
+            LoginProtection protection) {
         this.users = users;
         this.ceremonies = ceremonies;
         this.relyingParty = relyingParty;
         this.tokens = tokens;
         this.protection = protection;
-        this.objectMapper = objectMapper;
         this.webauthn = properties.webauthn();
     }
 
     @Override
     @Transactional
     public PasskeyOptions<PublicKeyCredentialRequestOptions> beginAuthentication(String username) {
+        return beginAuthentication(username, UserRole.USER);
+    }
+
+    @Override
+    @Transactional
+    public PasskeyOptions<PublicKeyCredentialRequestOptions> beginAdminAuthentication(String username) {
+        return beginAuthentication(username, UserRole.ADMIN);
+    }
+
+    private PasskeyOptions<PublicKeyCredentialRequestOptions> beginAuthentication(String username, UserRole expectedRole) {
         protection.checkAccountRateLimit(username);
-        UserAccount user = findEligibleUser(username);
+        UserAccount user = findEligibleUser(username, expectedRole);
         boolean dummy = user == null;
         PublicKeyCredentialRequestOptions options = dummy ? dummyOptions() : requestOptions(user);
         Instant now = Instant.now();
@@ -78,13 +86,25 @@ public class PasskeyAuthenticationService implements PasskeyAuthenticationUseCas
     @Transactional(noRollbackFor = AuthenticationFailedException.class)
     public TokenPair finishAuthentication(UUID ceremonyId,
             PublicKeyCredential<AuthenticatorAssertionResponse> credential) {
+        return finishAuthentication(ceremonyId, credential, UserRole.USER);
+    }
+
+    @Override
+    @Transactional(noRollbackFor = AuthenticationFailedException.class)
+    public TokenPair finishAdminAuthentication(UUID ceremonyId,
+            PublicKeyCredential<AuthenticatorAssertionResponse> credential) {
+        return finishAuthentication(ceremonyId, credential, UserRole.ADMIN);
+    }
+
+    private TokenPair finishAuthentication(UUID ceremonyId,
+            PublicKeyCredential<AuthenticatorAssertionResponse> credential, UserRole expectedRole) {
         AuthCeremony ceremony = ceremonies.consume(ceremonyId, AuthCeremony.CeremonyType.AUTHENTICATE, Instant.now());
         if (ceremony.dummy() || ceremony.userId() == null) {
             throw new AuthenticationFailedException();
         }
         UserAccount user = users.findById(ceremony.userId()).orElseThrow(AuthenticationFailedException::new);
         protection.checkAccountRateLimit(user.username());
-        if (user.status() != UserStatus.ACTIVE || protection.isLocked(user.id()))
+        if (user.status() != UserStatus.ACTIVE || user.role() != expectedRole || protection.isLocked(user.id()))
             throw new AuthenticationFailedException();
         try {
             var entity = relyingParty.authenticate(new RelyingPartyAuthenticationRequest(
@@ -105,10 +125,11 @@ public class PasskeyAuthenticationService implements PasskeyAuthenticationUseCas
         }
     }
 
-    private UserAccount findEligibleUser(String username) {
+    private UserAccount findEligibleUser(String username, UserRole expectedRole) {
         try {
             UserAccount user = users.findByUsername(UserAccount.normalizeUsername(username)).orElse(null);
-            if (user == null || user.status() != UserStatus.ACTIVE || protection.isLocked(user.id())) {
+            if (user == null || user.role() != expectedRole || user.status() != UserStatus.ACTIVE
+                    || protection.isLocked(user.id())) {
                 return null;
             }
             // The adapter only returns this user's credentials, so an empty allow-list is safe to
@@ -138,19 +159,11 @@ public class PasskeyAuthenticationService implements PasskeyAuthenticationUseCas
                 .userVerification(UserVerificationRequirement.REQUIRED).build();
     }
 
-    private String write(Object options) {
-        try {
-            return objectMapper.writeValueAsString(options);
-        } catch (JacksonException exception) {
-            throw new IllegalStateException("无法保存 WebAuthn ceremony", exception);
-        }
+    private String write(PublicKeyCredentialRequestOptions options) {
+        return OPTIONS_CODEC.write(options);
     }
 
-    private <T> T read(String json, Class<T> type) {
-        try {
-            return objectMapper.readValue(json, type);
-        } catch (JacksonException exception) {
-            throw new AuthenticationFailedException();
-        }
+    private <T> T read(String encoded, Class<T> type) {
+        return OPTIONS_CODEC.read(encoded, type);
     }
 }

@@ -5,6 +5,8 @@ public interface AuthUseCase {
 
     TokenPair passwordLogin(String username, String password);
 
+    TokenPair adminPasswordLogin(String username, String password);
+
     TokenPair refresh(String refreshToken);
 
     void logout(String refreshToken);

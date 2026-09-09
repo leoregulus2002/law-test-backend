@@ -35,4 +35,18 @@ public class PasskeyAuthenticationController {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(TokenPairResponse.from(
                 passkeys.finishAuthentication(request.ceremonyId(), request.publicKey())));
     }
+
+    @PostMapping("/admin/options")
+    @Operation(summary = "创建管理员账号范围 Passkey 登录选项")
+    public ResponseEntity<PasskeyOptionsResponse<?>> adminOptions(@RequestBody PasskeyAuthenticationOptionsRequest request) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(PasskeyOptionsResponse.from(
+                passkeys.beginAdminAuthentication(request.username())));
+    }
+
+    @PostMapping("/admin/verify")
+    @Operation(summary = "验证管理员 Passkey 登录")
+    public ResponseEntity<TokenPairResponse> adminVerify(@RequestBody PasskeyAuthenticationVerifyRequest request) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(TokenPairResponse.from(
+                passkeys.finishAdminAuthentication(request.ceremonyId(), request.publicKey())));
+    }
 }

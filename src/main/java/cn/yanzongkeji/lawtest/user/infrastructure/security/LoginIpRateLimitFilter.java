@@ -14,9 +14,12 @@ import java.util.Set;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.jackson.databind.ObjectMapper;
 
 final class LoginIpRateLimitFilter extends OncePerRequestFilter {
+    private static final Logger LOG = LoggerFactory.getLogger(LoginIpRateLimitFilter.class);
     private static final Set<String> PATHS = Set.of(
             "/api/v1/auth/password/login",
             "/api/v1/auth/passkeys/authentication/options",
@@ -41,10 +44,14 @@ final class LoginIpRateLimitFilter extends OncePerRequestFilter {
             // 不直接信任客户端提供的 X-Forwarded-For；代理应在容器可信代理配置中处理。
             protection.checkIpRateLimit(request.getRemoteAddr());
         } catch (LoginRateLimitedException exception) {
+            LOG.warn("Login IP rate limit exceeded: method={} path={}",
+                    request.getMethod(), request.getRequestURI());
             response.setHeader(HttpHeaders.RETRY_AFTER, Long.toString(exception.retryAfterSeconds()));
             writeError(response, 429, "LOGIN_RATE_LIMITED", "登录请求过于频繁");
             return;
         } catch (AuthStateUnavailableException exception) {
+            LOG.error("Authentication state is unavailable during IP rate limit check: method={} path={}",
+                    request.getMethod(), request.getRequestURI(), exception);
             writeError(response, 503, "AUTH_STATE_UNAVAILABLE", "认证服务暂不可用");
             return;
         }

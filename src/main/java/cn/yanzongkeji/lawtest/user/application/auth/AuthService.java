@@ -8,6 +8,7 @@ import cn.yanzongkeji.lawtest.user.domain.model.UserId;
 import cn.yanzongkeji.lawtest.user.domain.port.UserRepository;
 import cn.yanzongkeji.lawtest.user.domain.port.LoginProtection;
 import cn.yanzongkeji.lawtest.user.domain.model.UserStatus;
+import cn.yanzongkeji.lawtest.user.domain.model.UserRole;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -62,6 +63,15 @@ public class AuthService implements AuthUseCase {
 
     @Override
     public TokenPair passwordLogin(String username, String password) {
+        return passwordLogin(username, password, UserRole.USER);
+    }
+
+    @Override
+    public TokenPair adminPasswordLogin(String username, String password) {
+        return passwordLogin(username, password, UserRole.ADMIN);
+    }
+
+    private TokenPair passwordLogin(String username, String password, UserRole expectedRole) {
         protection.checkAccountRateLimit(username);
         UserAccount user = null;
         try {
@@ -74,7 +84,7 @@ public class AuthService implements AuthUseCase {
                 user != null && validPassword ? user.passwordHash() : missingAccountHash);
         if (user == null)
             throw new AuthenticationFailedException();
-        if (user.status() != UserStatus.ACTIVE || protection.isLocked(user.id()))
+        if (user.status() != UserStatus.ACTIVE || user.role() != expectedRole || protection.isLocked(user.id()))
             throw new AccountLockedException();
         if (!validPassword || !matches) {
             protection.recordPasswordFailure(user.id());

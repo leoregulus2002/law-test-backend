@@ -40,6 +40,13 @@ public class AuthController {
                 auth.passwordLogin(request.username(), request.password())));
     }
 
+    @PostMapping("/admin/password/login")
+    @Operation(summary = "管理员账号密码登录")
+    public ResponseEntity<TokenPairResponse> adminPasswordLogin(@RequestBody PasswordLoginRequest request) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(TokenPairResponse.from(
+                auth.adminPasswordLogin(request.username(), request.password())));
+    }
+
     @PostMapping("/token/refresh")
     @Operation(summary = "轮换刷新令牌")
     public ResponseEntity<TokenPairResponse> refresh(@RequestBody RefreshTokenRequest request) {

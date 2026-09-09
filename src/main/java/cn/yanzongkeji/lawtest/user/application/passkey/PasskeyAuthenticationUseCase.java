@@ -9,6 +9,11 @@ import org.springframework.security.web.webauthn.api.PublicKeyCredentialRequestO
 public interface PasskeyAuthenticationUseCase {
     PasskeyOptions<PublicKeyCredentialRequestOptions> beginAuthentication(String username);
 
+    PasskeyOptions<PublicKeyCredentialRequestOptions> beginAdminAuthentication(String username);
+
     TokenPair finishAuthentication(UUID ceremonyId,
+            PublicKeyCredential<AuthenticatorAssertionResponse> credential);
+
+    TokenPair finishAdminAuthentication(UUID ceremonyId,
             PublicKeyCredential<AuthenticatorAssertionResponse> credential);
 }

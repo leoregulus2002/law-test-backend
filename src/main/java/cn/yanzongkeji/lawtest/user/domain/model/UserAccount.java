@@ -14,12 +14,13 @@ public final class UserAccount {
     private final String displayName;
     private final String passwordHash;
     private final byte[] webauthnUserHandle;
+    private final UserRole role;
     private final UserStatus status;
     private final Instant createdAt;
     private final Instant updatedAt;
 
     private UserAccount(UserId id, String username, String displayName, String passwordHash,
-            byte[] webauthnUserHandle, UserStatus status, Instant createdAt, Instant updatedAt) {
+            byte[] webauthnUserHandle, UserRole role, UserStatus status, Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.username = normalizeUsername(username);
         if (displayName == null || displayName.isBlank())
@@ -33,6 +34,7 @@ public final class UserAccount {
         if (webauthnUserHandle == null || webauthnUserHandle.length != 32)
             throw new IllegalArgumentException("WebAuthn 用户标识必须为 32 字节");
         this.webauthnUserHandle = webauthnUserHandle.clone();
+        this.role = Objects.requireNonNull(role, "用户角色不能为空");
         this.status = Objects.requireNonNull(status, "用户状态不能为空");
         this.createdAt = Objects.requireNonNull(createdAt, "创建时间不能为空");
         this.updatedAt = Objects.requireNonNull(updatedAt, "更新时间不能为空");
@@ -40,14 +42,20 @@ public final class UserAccount {
 
     public static UserAccount register(String username, String displayName, String passwordHash,
             byte[] webauthnUserHandle, Instant now) {
-        return new UserAccount(null, username, displayName, passwordHash, webauthnUserHandle,
+        return create(username, displayName, passwordHash, webauthnUserHandle, UserRole.USER, now);
+    }
+
+    public static UserAccount create(String username, String displayName, String passwordHash,
+            byte[] webauthnUserHandle, UserRole role, Instant now) {
+        return new UserAccount(null, username, displayName, passwordHash, webauthnUserHandle, role,
                 UserStatus.ACTIVE, now, now);
     }
 
     public static UserAccount reconstitute(UserId id, String username, String displayName,
-            String passwordHash, byte[] webauthnUserHandle, UserStatus status, Instant createdAt, Instant updatedAt) {
+            String passwordHash, byte[] webauthnUserHandle, UserRole role, UserStatus status,
+            Instant createdAt, Instant updatedAt) {
         return new UserAccount(Objects.requireNonNull(id, "用户 ID 不能为空"), username, displayName,
-                passwordHash, webauthnUserHandle, status, createdAt, updatedAt);
+                passwordHash, webauthnUserHandle, role, status, createdAt, updatedAt);
     }
 
     public static String normalizeUsername(String username) {
@@ -82,6 +90,20 @@ public final class UserAccount {
 
     public UserStatus status() {
         return status;
+    }
+
+    public UserRole role() {
+        return role;
+    }
+
+    public UserAccount updateProfile(String displayName, UserRole role, UserStatus status, Instant now) {
+        return new UserAccount(id, username, displayName, passwordHash, webauthnUserHandle, role, status,
+                createdAt, now);
+    }
+
+    public UserAccount resetPassword(String passwordHash, Instant now) {
+        return new UserAccount(id, username, displayName, passwordHash, webauthnUserHandle, role, status,
+                createdAt, now);
     }
 
     public Instant createdAt() {

@@ -45,10 +45,14 @@ law-test:
     webauthn:
       rp-id: ${WEBAUTHN_RP_ID:localhost}
       rp-name: ${WEBAUTHN_RP_NAME:Law Test Development}
-      allowed-origins: ${WEBAUTHN_ALLOWED_ORIGINS:http://localhost:8080}
+      allowed-origins: ${WEBAUTHN_ALLOWED_ORIGINS:http://localhost:8080,http://localhost:5173}
       ceremony-ttl: PT5M
     android:
       package-name: ${ANDROID_PACKAGE_NAME:cn.yanzongkeji.lawtest.android}
       certificate-sha256: ${ANDROID_CERTIFICATE_SHA256:DEV_CERTIFICATE_SHA256}
+  admin-bootstrap:
+    username: ${ADMIN_INITIAL_USERNAME:}
+    password: ${ADMIN_INITIAL_PASSWORD:}
+    display-name: ${ADMIN_INITIAL_DISPLAY_NAME:}
 server:
   port: 9323

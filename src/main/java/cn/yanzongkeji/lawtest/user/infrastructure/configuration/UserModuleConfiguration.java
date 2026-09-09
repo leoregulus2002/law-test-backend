@@ -9,6 +9,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.webauthn.jackson.WebauthnJacksonModule;
+import tools.jackson.databind.JacksonModule;
 
 @Configuration(proxyBeanMethods = false)
 public class UserModuleConfiguration {
@@ -18,6 +20,15 @@ public class UserModuleConfiguration {
     @Bean
     PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
+    }
+
+    /**
+     * 将 WebAuthn 的二进制字段序列化为浏览器协议要求的 Base64URL 字符串，
+     * 而非 Jackson 默认的对象结构。
+     */
+    @Bean
+    JacksonModule webauthnJacksonModule() {
+        return new WebauthnJacksonModule();
     }
 
     @Bean

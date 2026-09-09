@@ -17,47 +17,59 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice(basePackages = "cn.yanzongkeji.lawtest.user.interfaces.rest.controller")
 public class UserAuthenticationExceptionHandler {
+    private static final Logger LOG = LoggerFactory.getLogger(UserAuthenticationExceptionHandler.class);
+
     @ExceptionHandler({AuthenticationFailedException.class, InvalidRefreshTokenException.class})
     public ResponseEntity<AuthErrorResponse> authenticationFailed(RuntimeException exception) {
+        logClientError(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_FAILED", exception);
         return error(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_FAILED", "账号或凭证无效");
     }
 
     @ExceptionHandler(AccountLockedException.class)
     public ResponseEntity<AuthErrorResponse> accountUnavailable(AccountLockedException exception) {
+        logClientError(HttpStatus.FORBIDDEN, "ACCOUNT_UNAVAILABLE", exception);
         return error(HttpStatus.FORBIDDEN, "ACCOUNT_UNAVAILABLE", "账号暂不可用");
     }
 
     @ExceptionHandler(AccountConflictException.class)
     public ResponseEntity<AuthErrorResponse> accountConflict(AccountConflictException exception) {
+        logClientError(HttpStatus.CONFLICT, "ACCOUNT_CONFLICT", exception);
         return error(HttpStatus.CONFLICT, "ACCOUNT_CONFLICT", "账号已存在");
     }
 
     @ExceptionHandler(PasskeyConflictException.class)
     public ResponseEntity<AuthErrorResponse> passkeyConflict(PasskeyConflictException exception) {
+        logClientError(HttpStatus.CONFLICT, "PASSKEY_CONFLICT", exception);
         return error(HttpStatus.CONFLICT, "PASSKEY_CONFLICT", "Passkey 名称或凭证已存在");
     }
 
     @ExceptionHandler(CeremonyUnavailableException.class)
     public ResponseEntity<AuthErrorResponse> ceremonyUnavailable(CeremonyUnavailableException exception) {
+        logClientError(HttpStatus.GONE, "CEREMONY_UNAVAILABLE", exception);
         return error(HttpStatus.GONE, "CEREMONY_UNAVAILABLE", "认证操作已失效");
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<AuthErrorResponse> validationFailed(IllegalArgumentException exception) {
+        logClientError(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", exception);
         return error(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", exception.getMessage());
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<AuthErrorResponse> malformedRequest(HttpMessageNotReadableException exception) {
+        logClientError(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", exception);
         return error(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", "请求 JSON 格式或字段类型无效");
     }
 
     @ExceptionHandler(LoginRateLimitedException.class)
     public ResponseEntity<AuthErrorResponse> loginRateLimited(LoginRateLimitedException exception) {
+        logClientError(HttpStatus.TOO_MANY_REQUESTS, "LOGIN_RATE_LIMITED", exception);
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .header("Retry-After", Long.toString(exception.retryAfterSeconds()))
                 .cacheControl(CacheControl.noStore())
@@ -66,15 +78,22 @@ public class UserAuthenticationExceptionHandler {
 
     @ExceptionHandler(AuthStateUnavailableException.class)
     public ResponseEntity<AuthErrorResponse> authStateUnavailable(AuthStateUnavailableException exception) {
+        LOG.error("Authentication state is unavailable", exception);
         return error(HttpStatus.SERVICE_UNAVAILABLE, "AUTH_STATE_UNAVAILABLE", "认证服务暂不可用");
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<AuthErrorResponse> unexpectedFailure(Exception exception) {
+        LOG.error("Unexpected authentication API failure", exception);
         return error(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "服务器内部错误");
     }
 
     private ResponseEntity<AuthErrorResponse> error(HttpStatus status, String code, String message) {
         return ResponseEntity.status(status).cacheControl(CacheControl.noStore()).body(AuthErrorResponse.of(code, message));
+    }
+
+    private void logClientError(HttpStatus status, String code, RuntimeException exception) {
+        LOG.warn("Authentication API request rejected: status={} code={} exceptionType={}",
+                status.value(), code, exception.getClass().getSimpleName());
     }
 }

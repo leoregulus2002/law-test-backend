@@ -38,7 +38,7 @@ public class JwtAccessTokenIssuer implements AccessTokenIssuer {
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .subject(Long.toString(user.id().value()))
                 .claim("username", user.username())
-                .claim("roles", List.of("USER"))
+                .claim("roles", List.of(user.role().name()))
                 .issuer(properties.issuer())
                 .issuedAt(issuedAt)
                 .expiresAt(issuedAt.plus(properties.accessTokenTtl()))

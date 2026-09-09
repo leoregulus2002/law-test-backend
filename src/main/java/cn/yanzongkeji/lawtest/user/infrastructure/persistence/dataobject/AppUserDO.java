@@ -22,6 +22,7 @@ public class AppUserDO {
     @ToString.Exclude
     @TableField("webauthn_user_handle")
     private byte[] webauthnUserHandle;
+    private String role;
     private String status;
     @TableField("created_at")
     private Instant createdAt;
