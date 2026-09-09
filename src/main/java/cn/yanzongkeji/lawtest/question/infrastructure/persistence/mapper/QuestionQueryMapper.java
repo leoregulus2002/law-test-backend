@@ -4,6 +4,7 @@ import cn.yanzongkeji.lawtest.question.infrastructure.persistence.dataobject.Que
 import cn.yanzongkeji.lawtest.question.infrastructure.persistence.dataobject.QuestionDO;
 import cn.yanzongkeji.lawtest.question.infrastructure.persistence.dataobject.QuestionOptionDO;
 import cn.yanzongkeji.lawtest.question.infrastructure.persistence.dataobject.QuestionListItemDO;
+import cn.yanzongkeji.lawtest.question.application.dto.QuestionListFilter;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -24,16 +25,34 @@ public interface QuestionQueryMapper {
     List<QuestionDO> findPageByBankId(@Param("questionBankId") long questionBankId,
             @Param("offset") int offset, @Param("limit") int limit);
 
-    @Select("""
-            select q.id, q.question_bank_id, b.name as question_bank_name, q.sequence_no, q.stem, q.question_type, q.status
-            from question q join question_bank b on b.id = q.question_bank_id
-            order by q.id desc
-            limit #{limit} offset #{offset}
-            """)
-    List<QuestionListItemDO> findPage(@Param("offset") int offset, @Param("limit") int limit);
+    @Select({
+            "<script>",
+            "select q.id, q.question_bank_id, b.name as question_bank_name, q.sequence_no, q.stem, q.question_type, q.status",
+            "from question q join question_bank b on b.id = q.question_bank_id",
+            "<where>",
+            "<if test='filter.keyword != null and !filter.keyword.isBlank()'>and lower(q.stem) like concat('%', lower(#{filter.keyword}), '%')</if>",
+            "<if test='filter.questionType != null'>and q.question_type = #{filter.questionType}</if>",
+            "<if test='filter.status != null'>and q.status = #{filter.status}</if>",
+            "<if test='filter.questionBankId != null'>and q.question_bank_id = #{filter.questionBankId}</if>",
+            "</where>",
+            "order by q.id desc limit #{limit} offset #{offset}",
+            "</script>"
+    })
+    List<QuestionListItemDO> findPage(@Param("offset") int offset, @Param("limit") int limit,
+            @Param("filter") QuestionListFilter filter);
 
-    @Select("select count(*) from question")
-    long count();
+    @Select({
+            "<script>",
+            "select count(*) from question q",
+            "<where>",
+            "<if test='filter.keyword != null and !filter.keyword.isBlank()'>and lower(q.stem) like concat('%', lower(#{filter.keyword}), '%')</if>",
+            "<if test='filter.questionType != null'>and q.question_type = #{filter.questionType}</if>",
+            "<if test='filter.status != null'>and q.status = #{filter.status}</if>",
+            "<if test='filter.questionBankId != null'>and q.question_bank_id = #{filter.questionBankId}</if>",
+            "</where>",
+            "</script>"
+    })
+    long count(@Param("filter") QuestionListFilter filter);
 
     /** 统计指定题库的题目数量。 */
     @Select("select count(*) from question where question_bank_id=#{questionBankId}")

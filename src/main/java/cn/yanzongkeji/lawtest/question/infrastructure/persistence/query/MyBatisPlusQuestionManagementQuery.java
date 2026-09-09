@@ -6,6 +6,7 @@ import cn.yanzongkeji.lawtest.question.domain.model.QuestionBankId;
 import cn.yanzongkeji.lawtest.question.domain.model.QuestionStatus;
 import cn.yanzongkeji.lawtest.question.domain.model.QuestionType;
 import cn.yanzongkeji.lawtest.question.application.dto.QuestionListItem;
+import cn.yanzongkeji.lawtest.question.application.dto.QuestionListFilter;
 import cn.yanzongkeji.lawtest.question.infrastructure.persistence.converter.QuestionPersistenceConverter;
 import cn.yanzongkeji.lawtest.question.infrastructure.persistence.dataobject.QuestionAnswerDO;
 import cn.yanzongkeji.lawtest.question.infrastructure.persistence.dataobject.QuestionDO;
@@ -50,8 +51,8 @@ public class MyBatisPlusQuestionManagementQuery implements QuestionManagementQue
     }
 
     @Override
-    public List<QuestionListItem> findPage(int offset, int limit) {
-        return queryMapper.findPage(offset, limit).stream()
+    public List<QuestionListItem> findPage(int offset, int limit, QuestionListFilter filter) {
+        return queryMapper.findPage(offset, limit, filter).stream()
                 .map(item -> new QuestionListItem(item.getId(), item.getQuestionBankId(), item.getQuestionBankName(),
                         item.getSequenceNo(), item.getStem(), QuestionType.valueOf(item.getQuestionType()),
                         QuestionStatus.valueOf(item.getStatus())))
@@ -59,7 +60,7 @@ public class MyBatisPlusQuestionManagementQuery implements QuestionManagementQue
     }
 
     @Override
-    public long count() {
-        return queryMapper.count();
+    public long count(QuestionListFilter filter) {
+        return queryMapper.count(filter);
     }
 }

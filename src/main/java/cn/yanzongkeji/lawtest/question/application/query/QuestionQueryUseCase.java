@@ -3,6 +3,7 @@ package cn.yanzongkeji.lawtest.question.application.query;
 import cn.yanzongkeji.lawtest.question.application.dto.QuestionPage;
 import cn.yanzongkeji.lawtest.question.application.dto.QuestionIdCursorPage;
 import cn.yanzongkeji.lawtest.question.application.dto.QuestionListItem;
+import cn.yanzongkeji.lawtest.question.application.dto.QuestionListFilter;
 
 import cn.yanzongkeji.lawtest.question.domain.model.*;
 import java.util.List;
@@ -14,7 +15,7 @@ public interface QuestionQueryUseCase {
 
     QuestionPage<Question> questions(long bankId, int page, int size);
 
-    QuestionPage<QuestionListItem> questions(int page, int size);
+    QuestionPage<QuestionListItem> questions(int page, int size, QuestionListFilter filter);
 
     Question question(long id);
 

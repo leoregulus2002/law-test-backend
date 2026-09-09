@@ -50,9 +50,23 @@ public class QuestionManagementService implements QuestionManagementUseCase {
 
     @Override
     @Transactional
+    public void changeStatuses(List<Long> questionIds, QuestionStatus status) {
+        for (Long questionId : validIds(questionIds))
+            changeStatus(questionId, status);
+    }
+
+    @Override
+    @Transactional
     public void deleteQuestion(long questionId) {
         if (!questions.deleteById(new QuestionId(questionId)))
             throw new QuestionNotFoundException(questionId);
+    }
+
+    @Override
+    @Transactional
+    public void deleteQuestions(List<Long> questionIds) {
+        for (Long questionId : validIds(questionIds))
+            deleteQuestion(questionId);
     }
 
     @Override
@@ -74,5 +88,14 @@ public class QuestionManagementService implements QuestionManagementUseCase {
         } catch (RuntimeException e) {
             throw new QuestionValidationException(e.getMessage());
         }
+    }
+
+    private static List<Long> validIds(List<Long> questionIds) {
+        if (questionIds == null || questionIds.isEmpty())
+            throw new QuestionValidationException("请至少选择一道题目");
+        List<Long> ids = questionIds.stream().distinct().toList();
+        if (ids.stream().anyMatch(id -> id == null || id <= 0))
+            throw new QuestionValidationException("题目 ID 必须为正整数");
+        return ids;
     }
 }

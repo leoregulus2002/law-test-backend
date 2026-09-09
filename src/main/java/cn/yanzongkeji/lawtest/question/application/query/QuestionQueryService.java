@@ -3,6 +3,7 @@ package cn.yanzongkeji.lawtest.question.application.query;
 import cn.yanzongkeji.lawtest.question.application.dto.QuestionPage;
 import cn.yanzongkeji.lawtest.question.application.dto.QuestionIdCursorPage;
 import cn.yanzongkeji.lawtest.question.application.dto.QuestionListItem;
+import cn.yanzongkeji.lawtest.question.application.dto.QuestionListFilter;
 import cn.yanzongkeji.lawtest.question.application.exception.*;
 
 import cn.yanzongkeji.lawtest.question.domain.model.*;
@@ -35,9 +36,11 @@ public class QuestionQueryService implements QuestionQueryUseCase {
                 managementQuery.countByBankId(id));
     }
 
-    public QuestionPage<QuestionListItem> questions(int page, int size) {
+    public QuestionPage<QuestionListItem> questions(int page, int size, QuestionListFilter filter) {
         int[] p = page(page, size);
-        return new QuestionPage<>(managementQuery.findPage(p[0], p[1]), page, p[1], managementQuery.count());
+        if (filter.questionBankId() != null && filter.questionBankId() <= 0)
+            throw new QuestionValidationException("questionBankId 必须为正整数");
+        return new QuestionPage<>(managementQuery.findPage(p[0], p[1], filter), page, p[1], managementQuery.count(filter));
     }
 
     public Question question(long id) {

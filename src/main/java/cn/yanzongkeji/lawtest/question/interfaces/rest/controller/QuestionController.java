@@ -4,10 +4,15 @@ import cn.yanzongkeji.lawtest.question.application.command.QuestionManagementUse
 import cn.yanzongkeji.lawtest.question.application.dto.QuestionCommand;
 import cn.yanzongkeji.lawtest.question.application.dto.QuestionIdCursorPage;
 import cn.yanzongkeji.lawtest.question.application.dto.QuestionPage;
+import cn.yanzongkeji.lawtest.question.application.dto.QuestionListFilter;
 import cn.yanzongkeji.lawtest.question.application.query.QuestionQueryUseCase;
 import cn.yanzongkeji.lawtest.question.domain.model.Question;
+import cn.yanzongkeji.lawtest.question.domain.model.QuestionType;
+import cn.yanzongkeji.lawtest.question.domain.model.QuestionStatus;
 import cn.yanzongkeji.lawtest.question.interfaces.rest.request.QuestionUpsertRequest;
 import cn.yanzongkeji.lawtest.question.interfaces.rest.request.QuestionStatusUpdateRequest;
+import cn.yanzongkeji.lawtest.question.interfaces.rest.request.QuestionBatchStatusUpdateRequest;
+import cn.yanzongkeji.lawtest.question.interfaces.rest.request.QuestionBatchDeleteRequest;
 import cn.yanzongkeji.lawtest.question.interfaces.rest.response.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,8 +40,11 @@ public class QuestionController {
     @GetMapping("/questions")
     @Operation(summary = "分页查询全部题目")
     public PageResponse<QuestionListResponse> list(@RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        QuestionPage<cn.yanzongkeji.lawtest.question.application.dto.QuestionListItem> result = query.questions(page, size);
+            @RequestParam(defaultValue = "20") int size, @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) QuestionType questionType, @RequestParam(required = false) QuestionStatus status,
+            @RequestParam(required = false) Long questionBankId) {
+        QuestionPage<cn.yanzongkeji.lawtest.question.application.dto.QuestionListItem> result = query.questions(page, size,
+                new QuestionListFilter(keyword, questionType, status, questionBankId));
         return new PageResponse<>(result.items().stream().map(QuestionListResponse::from).toList(), result.page(),
                 result.size(), result.total());
     }
@@ -83,10 +91,24 @@ public class QuestionController {
         return QuestionDetailResponse.from(commands.changeStatus(id, request.status()));
     }
 
+    @PatchMapping("/questions/status")
+    @Operation(summary = "批量更新题目状态")
+    public ResponseEntity<Void> changeStatuses(@RequestBody QuestionBatchStatusUpdateRequest request) {
+        commands.changeStatuses(request.questionIds(), request.status());
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/questions/{id}")
     @Operation(summary = "删除题目", description = "同步删除该题目的选项和答案")
     public ResponseEntity<Void> delete(@PathVariable long id) {
         commands.deleteQuestion(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/questions")
+    @Operation(summary = "批量删除题目")
+    public ResponseEntity<Void> deleteBatch(@RequestBody QuestionBatchDeleteRequest request) {
+        commands.deleteQuestions(request.questionIds());
         return ResponseEntity.noContent().build();
     }
 
