@@ -19,7 +19,9 @@ public class MyBatisPlusQuestionBankRepository implements QuestionBankRepository
         Long id = mapper.insertIfAbsent(data);
         if (id != null)
             return new ImportResult(new QuestionBankId(id), true);
-        return new ImportResult(new QuestionBankId(mapper.selectIdByCode(bank.code().value())), false);
+        QuestionBankDO existing = mapper.selectOne(new LambdaQueryWrapper<QuestionBankDO>()
+                .eq(QuestionBankDO::getCode, bank.code().value()));
+        return new ImportResult(new QuestionBankId(existing.getId()), false);
     }
 
     public Optional<QuestionBank> findById(QuestionBankId id) {

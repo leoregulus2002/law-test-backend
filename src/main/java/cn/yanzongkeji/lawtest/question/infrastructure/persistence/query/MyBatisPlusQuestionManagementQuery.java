@@ -12,6 +12,8 @@ import cn.yanzongkeji.lawtest.question.infrastructure.persistence.dataobject.Que
 import cn.yanzongkeji.lawtest.question.infrastructure.persistence.dataobject.QuestionDO;
 import cn.yanzongkeji.lawtest.question.infrastructure.persistence.dataobject.QuestionOptionDO;
 import cn.yanzongkeji.lawtest.question.infrastructure.persistence.mapper.QuestionQueryMapper;
+import cn.yanzongkeji.lawtest.question.infrastructure.persistence.mapper.QuestionMapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import java.util.*;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -22,13 +24,16 @@ import org.springframework.stereotype.Repository;
 @RequiredArgsConstructor
 public class MyBatisPlusQuestionManagementQuery implements QuestionManagementQuery {
     private final QuestionQueryMapper queryMapper;
+    private final QuestionMapper questionMapper;
 
     /**
      * 使用一次主表分页查询和两次子表批量查询恢复整页聚合，避免逐题查询子表。
      */
     @Override
     public List<Question> findPageByBankId(QuestionBankId bankId, int offset, int limit) {
-        List<QuestionDO> questions = queryMapper.findPageByBankId(bankId.value(), offset, limit);
+        List<QuestionDO> questions = questionMapper.selectList(new LambdaQueryWrapper<QuestionDO>()
+                .eq(QuestionDO::getQuestionBankId, bankId.value()).orderByAsc(QuestionDO::getSequenceNo)
+                .orderByAsc(QuestionDO::getId).last("limit " + limit + " offset " + offset));
         if (questions.isEmpty())
             return List.of();
 
@@ -47,7 +52,8 @@ public class MyBatisPlusQuestionManagementQuery implements QuestionManagementQue
 
     @Override
     public long countByBankId(QuestionBankId bankId) {
-        return queryMapper.countByBankId(bankId.value());
+        return questionMapper.selectCount(new LambdaQueryWrapper<QuestionDO>()
+                .eq(QuestionDO::getQuestionBankId, bankId.value()));
     }
 
     @Override

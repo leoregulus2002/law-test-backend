@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.yanzongkeji.lawtest.question.infrastructure.persistence.mapper.QuestionQueryMapper">
+
+    <sql id="filterConditions">
+        <where>
+            <if test="filter.keyword != null and !filter.keyword.isBlank()">
+                and lower(q.stem) like concat('%', lower(#{filter.keyword}), '%')
+            </if>
+            <if test="filter.questionType != null">
+                and q.question_type = #{filter.questionType}
+            </if>
+            <if test="filter.status != null">
+                and q.status = #{filter.status}
+            </if>
+            <if test="filter.questionBankId != null">
+                and q.question_bank_id = #{filter.questionBankId}
+            </if>
+        </where>
+    </sql>
+
+    <select id="findPage" resultType="cn.yanzongkeji.lawtest.question.infrastructure.persistence.dataobject.QuestionListItemDO">
+        select q.id, q.question_bank_id, b.name as question_bank_name, q.sequence_no, q.stem, q.question_type, q.status
+        from question q
+        join question_bank b on b.id = q.question_bank_id
+        <include refid="filterConditions" />
+        order by q.id desc
+        limit #{limit} offset #{offset}
+    </select>
+
+    <select id="count" resultType="long">
+        select count(*) from question q
+        <include refid="filterConditions" />
+    </select>
+
+    <select id="findOptionsByQuestionIds" resultType="cn.yanzongkeji.lawtest.question.infrastructure.persistence.dataobject.QuestionOptionDO">
+        select id, question_id, label, content, display_order
+        from question_option
+        where question_id in
+        <foreach collection="questionIds" item="questionId" open="(" separator="," close=")">
+            #{questionId}
+        </foreach>
+        order by question_id, display_order
+    </select>
+
+    <select id="findAnswersByQuestionIds" resultType="cn.yanzongkeji.lawtest.question.infrastructure.persistence.dataobject.QuestionAnswerDO">
+        select question_id, option_label
+        from question_answer
+        where question_id in
+        <foreach collection="questionIds" item="questionId" open="(" separator="," close=")">
+            #{questionId}
+        </foreach>
+        order by question_id, option_label
+    </select>
+
+    <select id="countByBankIds" resultType="long">
+        select count(*) from question
+        where status = 'ACTIVE'
+        <if test="questionBankIds != null and questionBankIds.size() > 0">
+            and question_bank_id in
+            <foreach collection="questionBankIds" item="questionBankId" open="(" separator="," close=")">
+                #{questionBankId}
+            </foreach>
+        </if>
+    </select>
+
+    <select id="findIdsAfter" resultType="long">
+        select id from question
+        <where>
+            status = 'ACTIVE'
+            <if test="questionBankIds != null and questionBankIds.size() > 0">
+                and question_bank_id in
+                <foreach collection="questionBankIds" item="questionBankId" open="(" separator="," close=")">
+                    #{questionBankId}
+                </foreach>
+            </if>
+            <if test="cursor != null">
+                and id &gt; #{cursor}
+            </if>
+        </where>
+        order by id
+        limit #{limit}
+    </select>
+
+    <select id="findRandomId" resultType="long">
+        select id from question
+        where status = 'ACTIVE'
+        <if test="questionBankIds != null and questionBankIds.size() > 0">
+            and question_bank_id in
+            <foreach collection="questionBankIds" item="questionBankId" open="(" separator="," close=")">
+                #{questionBankId}
+            </foreach>
+        </if>
+        order by random()
+        limit 1
+    </select>
+</mapper>

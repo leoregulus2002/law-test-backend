@@ -1,8 +1,8 @@
 package cn.yanzongkeji.lawtest.user.application.passkey;
 
 import cn.yanzongkeji.lawtest.user.domain.model.UserId;
-import cn.yanzongkeji.lawtest.user.infrastructure.persistence.dataobject.UserPasskeyDO;
-import cn.yanzongkeji.lawtest.user.infrastructure.persistence.mapper.UserPasskeyMapper;
+import cn.yanzongkeji.lawtest.user.domain.port.PasskeyRepository;
+import cn.yanzongkeji.lawtest.user.domain.port.PasskeyRepository.StoredPasskey;
 import java.util.Base64;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -12,17 +12,17 @@ import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class PasskeyManagementService implements PasskeyManagementUseCase {
-    private final UserPasskeyMapper passkeys;
+    private final PasskeyRepository passkeys;
     private final ObjectMapper objectMapper;
 
-    public PasskeyManagementService(UserPasskeyMapper passkeys, ObjectMapper objectMapper) {
+    public PasskeyManagementService(PasskeyRepository passkeys, ObjectMapper objectMapper) {
         this.passkeys = passkeys;
         this.objectMapper = objectMapper;
     }
 
     @Override
     public List<Passkey> list(UserId userId) {
-        return passkeys.selectByUserId(userId.value()).stream().map(this::toPasskey).toList();
+        return passkeys.findByUserId(userId).stream().map(this::toPasskey).toList();
     }
 
     @Override
@@ -34,16 +34,14 @@ public class PasskeyManagementService implements PasskeyManagementUseCase {
         } catch (IllegalArgumentException exception) {
             return; // DELETE is deliberately idempotent, including a stale malformed client ID.
         }
-        UserPasskeyDO passkey = passkeys.selectByCredentialId(rawId);
-        if (passkey != null && passkey.getUserId() == userId.value()) {
-            passkeys.deleteByCredentialId(rawId);
-        }
+        passkeys.findByCredentialId(rawId).filter(passkey -> passkey.userId().equals(userId))
+                .ifPresent(passkey -> passkeys.deleteByCredentialId(rawId));
     }
 
-    private Passkey toPasskey(UserPasskeyDO value) {
-        return new Passkey(Base64.getUrlEncoder().withoutPadding().encodeToString(value.getCredentialId()),
-                value.getLabel(), transports(value.getTransports()), Boolean.TRUE.equals(value.getBackupEligible()),
-                Boolean.TRUE.equals(value.getBackupState()), value.getCreatedAt(), value.getLastUsedAt());
+    private Passkey toPasskey(StoredPasskey value) {
+        return new Passkey(Base64.getUrlEncoder().withoutPadding().encodeToString(value.credentialId()),
+                value.label(), transports(value.transports()), value.backupEligible(), value.backupState(),
+                value.createdAt(), value.lastUsedAt());
     }
 
     private List<String> transports(String json) {

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.yanzongkeji.lawtest.question.infrastructure.persistence.mapper.QuestionBankMapper">
+
+    <select id="insertIfAbsent" resultType="long">
+        insert into question_bank(code, name, source_file_name)
+        values (#{code}, #{name}, #{sourceFileName})
+        on conflict (code) do nothing
+        returning id
+    </select>
+</mapper>

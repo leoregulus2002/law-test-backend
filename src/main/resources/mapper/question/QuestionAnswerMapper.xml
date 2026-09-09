@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.yanzongkeji.lawtest.question.infrastructure.persistence.mapper.QuestionAnswerMapper">
+
+    <delete id="deleteByBankId">
+        delete from question_answer answer_data
+        using question question_data
+        where answer_data.question_id = question_data.id
+          and question_data.question_bank_id = #{questionBankId}
+    </delete>
+</mapper>

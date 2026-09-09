@@ -5,6 +5,8 @@ import cn.yanzongkeji.lawtest.question.domain.port.QuestionRepository;
 import cn.yanzongkeji.lawtest.question.infrastructure.persistence.converter.QuestionPersistenceConverter;
 import cn.yanzongkeji.lawtest.question.infrastructure.persistence.dataobject.*;
 import cn.yanzongkeji.lawtest.question.infrastructure.persistence.mapper.*;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import java.util.*;
@@ -28,7 +30,10 @@ public class MyBatisPlusQuestionRepository implements QuestionRepository {
         clearChildren(q.id().value());
         QuestionDO d = QuestionPersistenceConverter.toQuestionDO(q, q.questionBankId());
         d.setId(q.id().value());
-        questionMapper.updateContent(d);
+        questionMapper.update(null, new LambdaUpdateWrapper<QuestionDO>().eq(QuestionDO::getId, q.id().value())
+                .set(QuestionDO::getSequenceNo, d.getSequenceNo()).set(QuestionDO::getStem, d.getStem())
+                .set(QuestionDO::getAnalysis, d.getAnalysis()).set(QuestionDO::getQuestionType, d.getQuestionType())
+                .setSql("updated_at=current_timestamp"));
         insertChildren(q.id().value(), q);
         return q.id();
     }
@@ -64,11 +69,15 @@ public class MyBatisPlusQuestionRepository implements QuestionRepository {
         if (question == null)
             return Optional.empty();
         return Optional.of(QuestionPersistenceConverter.toDomain(question,
-                optionMapper.findByQuestionId(id.value()), answerMapper.findByQuestionId(id.value())));
+                optionMapper.selectList(new LambdaQueryWrapper<QuestionOptionDO>()
+                        .eq(QuestionOptionDO::getQuestionId, id.value()).orderByAsc(QuestionOptionDO::getDisplayOrder)),
+                answerMapper.selectList(new LambdaQueryWrapper<QuestionAnswerDO>()
+                        .eq(QuestionAnswerDO::getQuestionId, id.value()).orderByAsc(QuestionAnswerDO::getOptionLabel))));
     }
 
     public boolean updateStatus(QuestionId id, QuestionStatus status) {
-        return questionMapper.updateStatus(id.value(), status.name()) > 0;
+        return questionMapper.update(new LambdaUpdateWrapper<QuestionDO>().eq(QuestionDO::getId, id.value())
+                .set(QuestionDO::getStatus, status.name()).setSql("updated_at=current_timestamp")) > 0;
     }
 
     public boolean deleteById(QuestionId id) {
@@ -80,11 +89,11 @@ public class MyBatisPlusQuestionRepository implements QuestionRepository {
     public void deleteByBankId(QuestionBankId id) {
         answerMapper.deleteByBankId(id.value());
         optionMapper.deleteByBankId(id.value());
-        questionMapper.deleteByBankId(id.value());
+        questionMapper.delete(new LambdaQueryWrapper<QuestionDO>().eq(QuestionDO::getQuestionBankId, id.value()));
     }
 
     private void clearChildren(long id) {
-        answerMapper.deleteByQuestionId(id);
-        optionMapper.deleteByQuestionId(id);
+        answerMapper.delete(new LambdaQueryWrapper<QuestionAnswerDO>().eq(QuestionAnswerDO::getQuestionId, id));
+        optionMapper.delete(new LambdaQueryWrapper<QuestionOptionDO>().eq(QuestionOptionDO::getQuestionId, id));
     }
 }

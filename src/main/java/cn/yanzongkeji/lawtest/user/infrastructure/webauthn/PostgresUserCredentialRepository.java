@@ -4,6 +4,7 @@ import cn.yanzongkeji.lawtest.user.infrastructure.persistence.dataobject.AppUser
 import cn.yanzongkeji.lawtest.user.infrastructure.persistence.dataobject.UserPasskeyDO;
 import cn.yanzongkeji.lawtest.user.infrastructure.persistence.mapper.AppUserMapper;
 import cn.yanzongkeji.lawtest.user.infrastructure.persistence.mapper.UserPasskeyMapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -33,7 +34,8 @@ public class PostgresUserCredentialRepository implements UserCredentialRepositor
     @Override
     public CredentialRecord findByCredentialId(Bytes credentialId) {
         requireBytes(credentialId, "credential ID");
-        return toCredential(passkeys.selectByCredentialId(credentialId.getBytes()));
+        return toCredential(passkeys.selectOne(new LambdaQueryWrapper<UserPasskeyDO>()
+                .eq(UserPasskeyDO::getCredentialId, credentialId.getBytes())));
     }
 
     @Override
@@ -43,7 +45,9 @@ public class PostgresUserCredentialRepository implements UserCredentialRepositor
         if (user == null) {
             return List.of();
         }
-        return passkeys.selectByUserId(user.getId()).stream().map(this::toCredential).toList();
+        return passkeys.selectList(new LambdaQueryWrapper<UserPasskeyDO>()
+                .eq(UserPasskeyDO::getUserId, user.getId()).orderByAsc(UserPasskeyDO::getId))
+                .stream().map(this::toCredential).toList();
     }
 
     @Override
@@ -77,12 +81,13 @@ public class PostgresUserCredentialRepository implements UserCredentialRepositor
     @Override
     public void delete(Bytes credentialId) {
         requireBytes(credentialId, "credential ID");
-        passkeys.deleteByCredentialId(credentialId.getBytes());
+        passkeys.delete(new LambdaQueryWrapper<UserPasskeyDO>()
+                .eq(UserPasskeyDO::getCredentialId, credentialId.getBytes()));
     }
 
     private AppUserDO findUserByHandle(Bytes userId) {
         requireBytes(userId, "WebAuthn user ID");
-        return users.selectOne(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<AppUserDO>()
+        return users.selectOne(new LambdaQueryWrapper<AppUserDO>()
                 .eq(AppUserDO::getWebauthnUserHandle, userId.getBytes()));
     }
 
