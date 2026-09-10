@@ -16,6 +16,38 @@
         where progress.user_id = #{userId} and progress.status = 'WRONG'
     </select>
 
+    <select id="findFavoriteQuestionIdsAfter" resultType="long">
+        select favorite.question_id from user_favorite_question favorite
+        join question on question.id = favorite.question_id and question.status = 'ACTIVE'
+        where favorite.user_id = #{userId}
+        <if test="cursor != null">and favorite.question_id &lt; #{cursor}</if>
+        order by favorite.question_id desc
+        limit #{limit}
+    </select>
+
+    <select id="countFavoriteQuestionIds" resultType="long">
+        select count(*) from user_favorite_question favorite
+        join question on question.id = favorite.question_id and question.status = 'ACTIVE'
+        where favorite.user_id = #{userId}
+    </select>
+
+    <select id="isFavoriteQuestion" resultType="boolean">
+        select exists(
+            select 1 from user_favorite_question
+            where user_id = #{userId} and question_id = #{questionId}
+        )
+    </select>
+
+    <insert id="addFavoriteQuestion">
+        insert into user_favorite_question (user_id, question_id)
+        values (#{userId}, #{questionId})
+        on conflict (user_id, question_id) do nothing
+    </insert>
+
+    <delete id="removeFavoriteQuestion">
+        delete from user_favorite_question where user_id = #{userId} and question_id = #{questionId}
+    </delete>
+
     <select id="findSequentialQuestionId" resultType="long">
         select question_id from user_sequential_progress where user_id = #{userId} and scope_key = #{scopeKey}
     </select>

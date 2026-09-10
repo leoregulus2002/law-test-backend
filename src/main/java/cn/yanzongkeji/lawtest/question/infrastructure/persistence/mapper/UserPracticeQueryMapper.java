@@ -11,6 +11,17 @@ public interface UserPracticeQueryMapper {
 
     long countWrongQuestionIds(@Param("userId") long userId);
 
+    List<Long> findFavoriteQuestionIdsAfter(@Param("userId") long userId, @Param("cursor") Long cursor,
+            @Param("limit") int limit);
+
+    long countFavoriteQuestionIds(@Param("userId") long userId);
+
+    boolean isFavoriteQuestion(@Param("userId") long userId, @Param("questionId") long questionId);
+
+    int addFavoriteQuestion(@Param("userId") long userId, @Param("questionId") long questionId);
+
+    int removeFavoriteQuestion(@Param("userId") long userId, @Param("questionId") long questionId);
+
     Long findSequentialQuestionId(@Param("userId") long userId, @Param("scopeKey") String scopeKey);
 
     int upsertSequentialQuestionId(@Param("userId") long userId, @Param("scopeKey") String scopeKey,

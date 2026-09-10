@@ -9,6 +9,7 @@ import cn.yanzongkeji.lawtest.question.infrastructure.persistence.mapper.UserQue
 import cn.yanzongkeji.lawtest.question.interfaces.rest.request.AnswerSubmissionRequest;
 import cn.yanzongkeji.lawtest.question.interfaces.rest.request.SequentialProgressRequest;
 import cn.yanzongkeji.lawtest.question.interfaces.rest.response.CursorPageResponse;
+import cn.yanzongkeji.lawtest.question.interfaces.rest.response.FavoriteQuestionStateResponse;
 import cn.yanzongkeji.lawtest.question.interfaces.rest.response.QuestionPracticeStatusResponse;
 import cn.yanzongkeji.lawtest.question.interfaces.rest.response.QuestionPracticeStatusListResponse;
 import cn.yanzongkeji.lawtest.question.interfaces.rest.response.SequentialProgressResponse;
@@ -21,6 +22,7 @@ import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -70,6 +72,43 @@ public class PracticeProgressController {
         Long nextCursor = hasNext ? items.getLast() : null;
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(new CursorPageResponse<>(items, nextCursor,
                 hasNext, practiceQuery.countWrongQuestionIds(userId)));
+    }
+
+    @GetMapping("/favorite-question-ids")
+    @Operation(summary = "游标分页读取当前用户收藏的题目 ID")
+    public ResponseEntity<CursorPageResponse<Long>> favoriteQuestionIds(JwtAuthenticationToken authentication,
+            @RequestParam(required = false) Long cursor, @RequestParam(defaultValue = "20") int size) {
+        validatePage(cursor, size);
+        long userId = currentUserId(authentication);
+        List<Long> ids = practiceQuery.findFavoriteQuestionIdsAfter(userId, cursor, size + 1);
+        boolean hasNext = ids.size() > size;
+        List<Long> items = hasNext ? ids.subList(0, size) : ids;
+        Long nextCursor = hasNext ? items.getLast() : null;
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(new CursorPageResponse<>(items, nextCursor,
+                hasNext, practiceQuery.countFavoriteQuestionIds(userId)));
+    }
+
+    @GetMapping("/questions/{questionId}/favorite")
+    @Operation(summary = "读取当前用户对题目的收藏状态")
+    public ResponseEntity<FavoriteQuestionStateResponse> favoriteState(JwtAuthenticationToken authentication,
+            @PathVariable long questionId) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(new FavoriteQuestionStateResponse(practiceQuery.isFavoriteQuestion(currentUserId(authentication), questionId)));
+    }
+
+    @PutMapping("/questions/{questionId}/favorite")
+    @Operation(summary = "收藏题目")
+    public ResponseEntity<Void> favoriteQuestion(JwtAuthenticationToken authentication, @PathVariable long questionId) {
+        requireActiveQuestion(questionId);
+        practiceQuery.addFavoriteQuestion(currentUserId(authentication), questionId);
+        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+    }
+
+    @DeleteMapping("/questions/{questionId}/favorite")
+    @Operation(summary = "取消收藏题目")
+    public ResponseEntity<Void> removeFavoriteQuestion(JwtAuthenticationToken authentication, @PathVariable long questionId) {
+        practiceQuery.removeFavoriteQuestion(currentUserId(authentication), questionId);
+        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
     }
 
     @GetMapping("/sequential-progress")
