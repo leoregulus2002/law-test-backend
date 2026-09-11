@@ -1,6 +1,7 @@
 package cn.yanzongkeji.lawtest.question.infrastructure.persistence.mapper;
 
 import java.util.List;
+import java.time.LocalDate;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -21,6 +22,13 @@ public interface UserPracticeQueryMapper {
     int addFavoriteQuestion(@Param("userId") long userId, @Param("questionId") long questionId);
 
     int removeFavoriteQuestion(@Param("userId") long userId, @Param("questionId") long questionId);
+
+    int recordDailyQuestion(@Param("userId") long userId, @Param("studyDate") LocalDate studyDate,
+            @Param("questionId") long questionId);
+
+    long countDailyQuestions(@Param("userId") long userId, @Param("studyDate") LocalDate studyDate);
+
+    List<LocalDate> findStudyDates(@Param("userId") long userId);
 
     Long findSequentialQuestionId(@Param("userId") long userId, @Param("scopeKey") String scopeKey);
 

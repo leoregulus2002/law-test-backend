@@ -13,10 +13,13 @@ import cn.yanzongkeji.lawtest.question.interfaces.rest.response.FavoriteQuestion
 import cn.yanzongkeji.lawtest.question.interfaces.rest.response.QuestionPracticeStatusResponse;
 import cn.yanzongkeji.lawtest.question.interfaces.rest.response.QuestionPracticeStatusListResponse;
 import cn.yanzongkeji.lawtest.question.interfaces.rest.response.SequentialProgressResponse;
+import cn.yanzongkeji.lawtest.question.interfaces.rest.response.StudySummaryResponse;
 import cn.yanzongkeji.lawtest.user.interfaces.rest.controller.PasskeyRegistrationController;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import io.swagger.v3.oas.annotations.Operation;
 import java.util.List;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +38,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/practice")
 public class PracticeProgressController {
+    private static final int DAILY_STUDY_GOAL = 20;
+    private static final ZoneId STUDY_ZONE = ZoneId.of("Asia/Shanghai");
     private final QuestionRepository questions;
     private final UserQuestionProgressMapper questionProgress;
     private final UserPracticeQueryMapper practiceQuery;
@@ -44,8 +49,20 @@ public class PracticeProgressController {
     public ResponseEntity<java.util.Map<String, Object>> submitAnswer(JwtAuthenticationToken authentication, @PathVariable long questionId,
             @RequestBody AnswerSubmissionRequest request) {
         requireActiveQuestion(questionId);
-        questionProgress.upsert(currentUserId(authentication), questionId, request.correct() ? "ANSWERED" : "WRONG");
+        long userId = currentUserId(authentication);
+        questionProgress.upsert(userId, questionId, request.correct() ? "ANSWERED" : "WRONG");
+        practiceQuery.recordDailyQuestion(userId, LocalDate.now(STUDY_ZONE), questionId);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(java.util.Map.of());
+    }
+
+    @GetMapping("/study-summary")
+    @Operation(summary = "读取当前用户今日学习统计")
+    public ResponseEntity<StudySummaryResponse> studySummary(JwtAuthenticationToken authentication) {
+        long userId = currentUserId(authentication);
+        LocalDate today = LocalDate.now(STUDY_ZONE);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(new StudySummaryResponse(
+                practiceQuery.countDailyQuestions(userId, today), DAILY_STUDY_GOAL,
+                consecutiveDays(practiceQuery.findStudyDates(userId), today)));
     }
 
     @GetMapping("/question-statuses")
@@ -152,5 +169,19 @@ public class PracticeProgressController {
     private static void validatePage(Long cursor, int size) {
         if (cursor != null && cursor <= 0) throw new IllegalArgumentException("cursor 必须为正整数");
         if (size < 1 || size > 100) throw new IllegalArgumentException("size 必须在 1 到 100 之间");
+    }
+
+    private static int consecutiveDays(List<LocalDate> studyDates, LocalDate today) {
+        int count = 0;
+        LocalDate expected = today;
+        for (LocalDate studyDate : studyDates) {
+            if (studyDate.equals(expected)) {
+                count++;
+                expected = expected.minusDays(1);
+            } else if (studyDate.isBefore(expected)) {
+                break;
+            }
+        }
+        return count;
     }
 }

@@ -48,6 +48,23 @@
         delete from user_favorite_question where user_id = #{userId} and question_id = #{questionId}
     </delete>
 
+    <insert id="recordDailyQuestion">
+        insert into user_daily_question (user_id, study_date, question_id)
+        values (#{userId}, #{studyDate}, #{questionId})
+        on conflict (user_id, study_date, question_id) do nothing
+    </insert>
+
+    <select id="countDailyQuestions" resultType="long">
+        select count(*) from user_daily_question
+        where user_id = #{userId} and study_date = #{studyDate}
+    </select>
+
+    <select id="findStudyDates" resultType="java.time.LocalDate">
+        select distinct study_date from user_daily_question
+        where user_id = #{userId}
+        order by study_date desc
+    </select>
+
     <select id="findSequentialQuestionId" resultType="long">
         select question_id from user_sequential_progress where user_id = #{userId} and scope_key = #{scopeKey}
     </select>
