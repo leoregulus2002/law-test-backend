@@ -2,6 +2,7 @@ package cn.yanzongkeji.lawtest.exam.interfaces.rest.controller;
 
 import cn.yanzongkeji.lawtest.exam.infrastructure.persistence.dataobject.*;
 import cn.yanzongkeji.lawtest.exam.infrastructure.persistence.mapper.*;
+import cn.yanzongkeji.lawtest.exam.infrastructure.grading.OpenAiCompatibleSubjectiveGrader;
 import cn.yanzongkeji.lawtest.exam.interfaces.rest.request.*;
 import cn.yanzongkeji.lawtest.question.domain.model.*;
 import cn.yanzongkeji.lawtest.question.domain.port.QuestionRepository;
@@ -32,6 +33,7 @@ public class MockExamController {
   private final MockExamAttemptQuestionMapper attemptQuestions;
   private final QuestionMapper questionMapper;
   private final QuestionRepository questionRepository;
+  private final OpenAiCompatibleSubjectiveGrader subjectiveGrader;
 
   @GetMapping("/admin/exams")
   @Operation(summary = "后台查询模拟考试")
@@ -225,7 +227,67 @@ public class MockExamController {
   @Operation(summary = "按当前参数开始一场新的模拟考试")
   public Map<String, Object> startCustom(JwtAuthenticationToken authentication) {
     MockExamDO exam = activeConfiguration();
-    return createAttempt(exam, PasskeyRegistrationController.currentUser(authentication).value());
+    long userId = PasskeyRegistrationController.currentUser(authentication).value();
+    attempts.update(
+        new LambdaUpdateWrapper<MockExamAttemptDO>()
+            .eq(MockExamAttemptDO::getUserId, userId)
+            .in(MockExamAttemptDO::getStatus, List.of("IN_PROGRESS", "PAUSED"))
+            .set(MockExamAttemptDO::getStatus, "ABANDONED"));
+    return createAttempt(exam, userId);
+  }
+
+  @GetMapping("/mock-exams/attempts/active")
+  @Operation(summary = "读取当前未交卷的模拟考试")
+  public Map<String, Object> activeCustomAttempt(JwtAuthenticationToken authentication) {
+    long userId = PasskeyRegistrationController.currentUser(authentication).value();
+    MockExamAttemptDO active =
+        attempts.selectOne(
+            new LambdaQueryWrapper<MockExamAttemptDO>()
+                .eq(MockExamAttemptDO::getUserId, userId)
+                .in(MockExamAttemptDO::getStatus, List.of("IN_PROGRESS", "PAUSED"))
+                .orderByDesc(MockExamAttemptDO::getId)
+                .last("limit 1"));
+    Map<String, Object> result = new LinkedHashMap<>();
+    result.put("attempt", active == null ? null : attemptView(active, false));
+    return result;
+  }
+
+  @PostMapping("/exam-attempts/{attemptId}/pause")
+  @Transactional
+  @Operation(summary = "暂停模拟考试")
+  public Map<String, Object> pause(
+      JwtAuthenticationToken authentication, @PathVariable long attemptId) {
+    MockExamAttemptDO attempt = requireOwnedAttempt(authentication, attemptId);
+    if (!"IN_PROGRESS".equals(attempt.getStatus())) throw new IllegalArgumentException("该考试当前不能暂停");
+    int remaining = remainingSeconds(attempt);
+    if (remaining == 0) {
+      score(attempt);
+      return attemptView(requireAttempt(attemptId), true);
+    }
+    attempt.setRemainingSeconds(remaining);
+    attempt.setStatus("PAUSED");
+    attempts.updateById(attempt);
+    return attemptView(attempt, false);
+  }
+
+  @PostMapping("/exam-attempts/{attemptId}/resume")
+  @Transactional
+  @Operation(summary = "继续模拟考试")
+  public Map<String, Object> resume(
+      JwtAuthenticationToken authentication, @PathVariable long attemptId) {
+    MockExamAttemptDO attempt = requireOwnedAttempt(authentication, attemptId);
+    if ("IN_PROGRESS".equals(attempt.getStatus())) return attemptView(attempt, false);
+    if (!"PAUSED".equals(attempt.getStatus())) throw new IllegalArgumentException("该考试当前不能继续");
+    int remaining = attempt.getRemainingSeconds() == null ? 0 : attempt.getRemainingSeconds();
+    if (remaining == 0) {
+      score(attempt);
+      return attemptView(requireAttempt(attemptId), true);
+    }
+    attempt.setExpiresAt(Instant.now().plusSeconds(remaining));
+    attempt.setRemainingSeconds(null);
+    attempt.setStatus("IN_PROGRESS");
+    attempts.updateById(attempt);
+    return attemptView(attempt, false);
   }
 
   @PutMapping("/exam-attempts/{attemptId}/questions/{orderNo}/answer")
@@ -447,6 +509,10 @@ public class MockExamController {
       BigDecimal awarded =
           "SUBJECTIVE".equals(item.getQuestionType())
               ? scoreSubjective(
+                  questionRepository
+                      .findById(new QuestionId(item.getQuestionId()))
+                      .map(Question::stem)
+                      .orElse(""),
                   item.getSubjectiveAnswer(), item.getReferenceAnswer(), item.getScore())
               : item.getCorrectAnswer().equals(item.getSelectedAnswer())
                       && !item.getCorrectAnswer().isBlank()
@@ -468,10 +534,13 @@ public class MockExamController {
             .set(MockExamAttemptDO::getPassed, sum.compareTo(exam.getPassingScore()) >= 0));
   }
 
-  /** 本地参考答案评分：匹配参考答案中的有效语句，保证没有外部模型时也可自动出分。 */
-  private static BigDecimal scoreSubjective(String answer, String reference, BigDecimal max) {
+  /** 优先由模型按参考答案评分；模型不可用时回退到本地要点匹配。 */
+  private BigDecimal scoreSubjective(
+      String question, String answer, String reference, BigDecimal max) {
     if (answer == null || answer.isBlank() || reference == null || reference.isBlank())
       return BigDecimal.ZERO;
+    BigDecimal modelScore = subjectiveGrader.grade(question, reference, answer, max);
+    if (modelScore != null) return modelScore;
     List<String> points =
         Arrays.stream(reference.split("[，。；;、\\n]"))
             .map(String::strip)
@@ -494,6 +563,7 @@ public class MockExamController {
     result.put("startedAt", attempt.getStartedAt());
     result.put("expiresAt", attempt.getExpiresAt());
     result.put("status", attempt.getStatus());
+    result.put("remainingSeconds", remainingSeconds(attempt));
     if (includeResult) {
       result.put("score", attempt.getScore());
       result.put("passed", attempt.getPassed());
@@ -650,8 +720,15 @@ public class MockExamController {
   }
 
   private static void requireOpen(MockExamAttemptDO attempt) {
-    if (!"IN_PROGRESS".equals(attempt.getStatus())) throw new IllegalArgumentException("该考试已交卷");
+    if (!"IN_PROGRESS".equals(attempt.getStatus()))
+      throw new IllegalArgumentException("该考试当前未在进行中");
     if (!Instant.now().isBefore(attempt.getExpiresAt()))
       throw new IllegalArgumentException("考试已到时，请直接交卷");
+  }
+
+  private static int remainingSeconds(MockExamAttemptDO attempt) {
+    if ("PAUSED".equals(attempt.getStatus()))
+      return Math.max(0, Optional.ofNullable(attempt.getRemainingSeconds()).orElse(0));
+    return Math.max(0, (int) Duration.between(Instant.now(), attempt.getExpiresAt()).getSeconds());
   }
 }

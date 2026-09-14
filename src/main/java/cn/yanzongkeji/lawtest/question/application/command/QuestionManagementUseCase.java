@@ -1,22 +1,23 @@
 package cn.yanzongkeji.lawtest.question.application.command;
 
 import cn.yanzongkeji.lawtest.question.application.dto.QuestionCommand;
-
 import cn.yanzongkeji.lawtest.question.domain.model.*;
 import java.util.List;
 
 public interface QuestionManagementUseCase {
-    Question create(long bankId, QuestionCommand command);
+  QuestionBank createQuestionBank(String name);
 
-    Question replace(long questionId, QuestionCommand command);
+  Question create(long bankId, QuestionCommand command);
 
-    Question changeStatus(long questionId, QuestionStatus status);
+  Question replace(long questionId, QuestionCommand command);
 
-    void changeStatuses(List<Long> questionIds, QuestionStatus status);
+  Question changeStatus(long questionId, QuestionStatus status);
 
-    void deleteQuestion(long questionId);
+  void changeStatuses(List<Long> questionIds, QuestionStatus status);
 
-    void deleteQuestions(List<Long> questionIds);
+  void deleteQuestion(long questionId);
 
-    void deleteQuestionBank(long bankId);
+  void deleteQuestions(List<Long> questionIds);
+
+  void deleteQuestionBank(long bankId);
 }

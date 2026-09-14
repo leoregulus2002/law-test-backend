@@ -26,6 +26,9 @@ public class MockExamAttemptDO {
   @TableField("submitted_at")
   private Instant submittedAt;
 
+  @TableField("remaining_seconds")
+  private Integer remainingSeconds;
+
   private String status;
   private BigDecimal score;
   private Boolean passed;
